@@ -64,7 +64,7 @@ export class MovementController {
 
         const newSquare = this.board.getSquare({ row: parseInt(row) - 1, column: notationToColumn[column] });
 
-        if(newSquare.empty && (validMove as Movement).type === 'en-passant') {
+        if(newSquare.empty && (validMove as Movement).type === 'en_passant') {
             this.enPassantCapture(notationToColumn[column], parseInt(row) - 1);
         }
 

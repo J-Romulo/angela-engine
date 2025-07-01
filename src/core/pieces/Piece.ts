@@ -10,7 +10,16 @@ export type LastPosition = Position & {
 }
 
 export type Movement = Position & {
-    type: 'move' | 'capture' | 'en-passant' | 'king-castling' | 'queen-castling'
+    type: 'move' 
+    | 'capture' 
+    | 'en_passant' 
+    | 'king_castling' 
+    | 'queen_castling' 
+    | 'promotion' 
+    | 'file_disambiguation' 
+    | 'rank_disambiguation' 
+    | 'full_disambiguation' 
+    | 'promotion_capture'
 }
 export abstract class Piece {
     color: 'black' | 'white'
