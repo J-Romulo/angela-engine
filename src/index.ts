@@ -1,3 +1,5 @@
-import { Board } from "./core/board/Board";
+import { GameController } from "./application/GameController";
 
-new Board()
+const gameController = new GameController();
+
+gameController.start();
