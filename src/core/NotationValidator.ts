@@ -1,15 +1,17 @@
+import { Movement } from "./pieces/Piece";
+
 export class NotationValidator {
   // Basic square notation (e.g., e4, a1, h8)
   static readonly SQUARE = /^[a-h][1-8]$/;
 
   // Piece symbols (K=King, Q=Queen, R=Rook, B=Bishop, N=Knight, no symbol=Pawn)
-  static readonly PIECE = /^[KQRBNkqrbn]?/;
+  static readonly PIECE = /^[KQRBN]?/;
 
   // Normal piece movement (e.g., e4, Nf3, Qd1, Rxa8)
-  static readonly NORMAL_MOVE = /^[KQRBNkqrbn]?[a-h]?[1-8]?x?[a-h][1-8]$/;
+  static readonly NORMAL_MOVE = /^[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8]$/;
 
   // Capture notation (e.g., exd5, Nxf7, Qxd8+)
-  static readonly CAPTURE = /^[KQRBNkqrbn]?[a-h]?[1-8]?x[a-h][1-8]$/;
+  static readonly CAPTURE = /^[KQRBN]?[a-h]?[1-8]?x[a-h][1-8]$/;
 
   // Castling (O-O for kingside, O-O-O for queenside)
   static readonly KING_CASTLING = /^O-O?$/;
@@ -28,24 +30,24 @@ export class NotationValidator {
   static readonly CHECKMATE = /#$/;
 
   // Complete move with optional check/checkmate (combines all above)
-  static readonly COMPLETE_MOVE = /^(?:O-O(?:-O)?|[KQRBNkqrbn]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?)[\+#]?$/;
+  static readonly COMPLETE_MOVE = /^(?:O-O(?:-O)?|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?)[\+#]?$/;
 
   // Disambiguation patterns
-  static readonly FILE_DISAMBIGUATION = /^[KQRBNkqrbn][a-h][a-h][1-8]$/; // e.g., Nbd2
-  static readonly RANK_DISAMBIGUATION = /^[KQRBNkqrbn][1-8][a-h][1-8]$/; // e.g., N1f3
-  static readonly FULL_DISAMBIGUATION = /^[KQRBNkqrbn][a-h][1-8][a-h][1-8]$/; // e.g., Nb1d2
+  static readonly FILE_DISAMBIGUATION = /^[KQRBN]?[a-h][a-h][1-8]$/; // e.g., Nbd2
+  static readonly RANK_DISAMBIGUATION = /^[KQRBN]?[1-8][a-h][1-8]$/; // e.g., N1f3
+  static readonly FULL_DISAMBIGUATION = /^[KQRBN]?[a-h][1-8][a-h][1-8]$/; // e.g., Nb1d2
 
   // En passant (special pawn capture)
   static readonly EN_PASSANT = /^[a-h]x[a-h][36]( e\.p\.)?$/;
 
   // Comprehensive pattern that matches most standard algebraic notation
-  static readonly ALGEBRAIC_NOTATION = /^(?:O-O(?:-O)?|[KQRBNkqrbn]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?)[\+#]?(?:\s+e\.p\.)?$/;
+  static readonly ALGEBRAIC_NOTATION = /^(?:O-O(?:-O)?|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?)[\+#]?(?:\s+e\.p\.)?$/;
 
   static isValidMove(notation: string): boolean {
     return this.ALGEBRAIC_NOTATION.test(notation.trim());
   }
 
-  static getMoveType(notation: string): string {
+  static getMoveType(notation: string): Movement['type'] {
     const move = notation.trim();
     
     if (this.KING_CASTLING.test(move.replace(/[\+#]/, ''))) {
@@ -70,7 +72,17 @@ export class NotationValidator {
       return 'promotion';
     }
     
-    return 'normal';
+    if(this.FILE_DISAMBIGUATION.test(move)){
+      return 'file_disambiguation';
+    }
+    if(this.RANK_DISAMBIGUATION.test(move)) {
+      return 'rank_disambiguation';
+    }
+    if(this.FULL_DISAMBIGUATION.test(move)) {
+      return 'full_disambiguation';
+    }
+
+    return 'move';
   }
 
   static isCheck(notation: string): boolean {
@@ -95,9 +107,69 @@ export class NotationValidator {
     return match ? match[0] : null;
   }
 
-  static getPieceSymbol(notation: string): string | null {
+  static getPieceSymbol(notation: string, moveType: Movement['type']): {
+    pieceSymbol: string | null;
+    ambiguousColumn?: string | null;
+    ambiguousRow?: string | null;
+  } {
+    if(moveType.includes('ambiguation')) {
+      return this.getPieceSymbolWithAmbiguition(notation, moveType);
+    }
+
+    const pawnMovement = this.SQUARE.test(notation);
+
+    if(pawnMovement) return {
+      pieceSymbol: '',
+    };
+
     const match = notation.match(this.PIECE);
 
-    return match ? match[0].toUpperCase() : null;
+    return {
+      pieceSymbol: match ? match[0].toUpperCase() : null,
+    }
+  }
+
+  static getPieceSymbolWithAmbiguition(notation: string, moveType: Movement['type']): {
+    pieceSymbol: string | null;
+    ambiguousColumn?: string | null;
+    ambiguousRow?: string | null;
+  } {
+    if(moveType === 'file_disambiguation') { //Nbd2
+      const ambiguationColumn = notation[ (notation.length - 2) - 1 ];
+
+      const match = notation.match(this.PIECE);
+      return {
+        pieceSymbol: notation.length === 3 ? '' : (match ? match[0].toUpperCase() : null),
+        ambiguousColumn: ambiguationColumn || null,
+        ambiguousRow: null
+      }
+    }
+    if(moveType === 'rank_disambiguation') {
+      const ambiguationRow = notation[ (notation.length - 2) - 1  ];
+
+      const match = notation.match(this.PIECE);
+      return {
+        pieceSymbol: notation.length === 3 ? '' : (match ? match[0].toUpperCase() : null),
+        ambiguousColumn: null,
+        ambiguousRow: ambiguationRow
+      }
+    }
+    if(moveType === 'full_disambiguation') {
+      const ambiguationColumn = notation[ (notation.length - 3) - 1  ];
+      const ambiguationRow = notation[ (notation.length - 2) - 1  ];
+
+      const match = notation.match(this.PIECE);
+      return {
+        pieceSymbol: notation.length === 4 ? '' : (match ? match[0].toUpperCase() : null),
+        ambiguousColumn: ambiguationColumn,
+        ambiguousRow: ambiguationRow
+      }
+    }
+
+    return {
+      pieceSymbol: null,
+      ambiguousColumn: null,
+      ambiguousRow: null
+    }
   }
 }
