@@ -39,7 +39,7 @@ export class Pawn extends Piece {
         ];
 
         for (const move of diagonalMoves) {
-            if(move.column > 7 || move.column < 0) break
+            if(move.column > 7 || move.column < 0) continue
             const targetSquare = board.getSquare(move);
             if (!targetSquare.empty && targetSquare.piece!.color !== this.color) {
                 validMovements.push(move);
