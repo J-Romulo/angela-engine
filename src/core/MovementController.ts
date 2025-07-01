@@ -23,40 +23,14 @@ export class MovementController {
             throw new Error('Invalid move format.');
         }
 
-        const pieceNotation = NotationValidator.getPieceSymbol(move) ?? '';
+        const moveType = NotationValidator.getMoveType(move);
+        const { pieceSymbol, ...ambiguation } = NotationValidator.getPieceSymbol(move, moveType);
         const [column, row] = NotationValidator.getDestinationSquare(move)?.split('') ?? [];
 
-        const moveType = NotationValidator.getMoveType(move);
+        if(moveType.includes('castling')) return this.castlingMovement(moveType);
 
-        if(moveType.includes('castling')) {
-            const king = this.board.getPieces('K', this.board.turn)[0];
-
-            const rook = this.board.getPieces('R', this.board.turn).filter(rook => {
-                return (rook.position.row === king.position.row && rook.position.column === (king.position.column + (moveType === 'king_castling' ? 3 : -4)))
-            })[0];
-
-            if(!rook || !king) {
-                throw new Error('Invalid castling move.');
-            }
-
-            const kingMovements = king.validMovements(this.board)?.filter(movement => movement.type === moveType);
-            const rookMovements = rook.validMovements(this.board)?.filter(movement => movement.type === moveType);
-
-            if(!kingMovements || !rookMovements || kingMovements.length === 0 || rookMovements.length === 0) {
-                throw new Error('Invalid castling move.');
-            }
-            
-            this.movePieceInTheBoard(king, { row: kingMovements[0].row, column: kingMovements[0].column });
-            this.movePieceInTheBoard(rook, { row: rookMovements[0].row, column: rookMovements[0].column });
-
-            this.board.setTurn(this.board.turn === 'white' ? 'black' : 'white');
-            this.board.setRound(this.board.round + 1);
-
-            return false
-        }
-
-        const validPieces = this.getValidPieces(pieceNotation);
-        const {validMove, validPiece} = this.getValidMovement(validPieces, column, row);
+        const validPieces = this.getValidPieces(pieceSymbol || '');
+        const {validMove, validPiece} = this.getValidMovement(validPieces, column, row, ambiguation);
 
         if(!validMove || !validPiece) {
             throw new Error('Invalid move for the selected piece.');
@@ -78,9 +52,6 @@ export class MovementController {
         return false
     }
 
-    checkMoveType(move: string) {
-        
-    }
     getValidPieces(pieceType: string) {
         const validPieces = this.board.getPieces(pieceType, this.board.turn);
         if (!validPieces) {
@@ -89,14 +60,25 @@ export class MovementController {
         return validPieces;
     }
 
-    getValidMovement(pieces: Piece[], column: string, row: string) {
+    getValidMovement(pieces: Piece[], column: string, row: string, ambiguition: {
+        ambiguousColumn?: string | null,
+        ambiguousRow?: string | null,
+    }) {
         let validMove = null;
         let validPiece: Piece | null = null
 
         // Loop inside loop, WARNING
-        pieces.forEach(piece => {
+        pieces.filter(piece => {
+            if(ambiguition.ambiguousColumn && ambiguition.ambiguousRow) {
+                return piece.position.column === notationToColumn[ambiguition.ambiguousColumn] && piece.position.row === parseInt(ambiguition.ambiguousRow) - 1
+            } else if(ambiguition.ambiguousColumn) {
+                return piece.position.column === notationToColumn[ambiguition.ambiguousColumn]
+            } else if(ambiguition.ambiguousRow) {
+                return piece.position.row === parseInt(ambiguition.ambiguousRow) - 1
+            }
+            return true;
+        }).forEach(piece => {
             const validMovements = piece.validMovements(this.board)
-
             if(validMovements && validMovements.length > 0) {
                 validMovements.forEach(validMovement => {
                     if(validMovement.column === notationToColumn[column] && validMovement.row === parseInt(row) - 1) {
@@ -112,6 +94,33 @@ export class MovementController {
             validMove,
             validPiece
         }
+    }
+
+    castlingMovement(moveType: Movement['type']) {
+        const king = this.board.getPieces('K', this.board.turn)[0];
+
+        const rook = this.board.getPieces('R', this.board.turn).filter(rook => {
+            return (rook.position.row === king.position.row && rook.position.column === (king.position.column + (moveType === 'king_castling' ? 3 : -4)))
+        })[0];
+
+        if(!rook || !king) {
+            throw new Error('Invalid castling move.');
+        }
+
+        const kingMovements = king.validMovements(this.board)?.filter(movement => movement.type === moveType);
+        const rookMovements = rook.validMovements(this.board)?.filter(movement => movement.type === moveType);
+
+        if(!kingMovements || !rookMovements || kingMovements.length === 0 || rookMovements.length === 0) {
+            throw new Error('Invalid castling move.');
+        }
+        
+        this.movePieceInTheBoard(king, { row: kingMovements[0].row, column: kingMovements[0].column });
+        this.movePieceInTheBoard(rook, { row: rookMovements[0].row, column: rookMovements[0].column });
+
+        this.board.setTurn(this.board.turn === 'white' ? 'black' : 'white');
+        this.board.setRound(this.board.round + 1);
+
+        return false
     }
 
     enPassantCapture(column: number, row: number) {
