@@ -1,12 +1,14 @@
 import { Board } from "../board/Board";
-import { Piece } from "./Piece"
+import { Movement, Piece } from "./Piece"
 
 export class Knight extends Piece {
     constructor(color: 'black' | 'white', type: 1 | 2) {
         super(color, {
-            column: type === 1 ? type : 6,
-            row: color === 'black' ? 7 : 0
-        })
+                column: type === 1 ? type : 6,
+                row: color === 'black' ? 7 : 0,
+            },
+            'N'
+        );
     }
 
     validMovements(board: Board) {
@@ -30,15 +32,15 @@ export class Knight extends Piece {
             let row = this.position.row + rowDir;
             let col = this.position.column + colDir;
 
-            if(row > 7 || row < 0 || col > 7 || col < 0) return
+            if(row > 7 || row < 0 || col > 7 || col < 0) continue;
             
             const possibleSquare = board.getSquare({ row, column: col });
             
             if (possibleSquare.empty) {
-                validMovements.push({ row, column: col });
+                validMovements.push({ row, column: col, type: 'move' as Movement['type'] });
             } else {
                 if (possibleSquare.piece!.color !== this.color) {
-                    validMovements.push({ row, column: col });
+                    validMovements.push({ row, column: col, type: 'capture' as Movement['type'] });
                 }
             }
         }

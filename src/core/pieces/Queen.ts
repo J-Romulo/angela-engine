@@ -1,12 +1,12 @@
 import { Board } from "../board/Board";
-import { Piece } from "./Piece";
+import { Movement, Piece } from "./Piece";
 
 export class Queen extends Piece {
     constructor(color: 'black' | 'white') {
         super(color, {
             column: 3,
             row: color === 'black' ? 7 : 0
-        })
+        }, 'Q')
     }
 
     validMovements(board: Board) {
@@ -31,10 +31,10 @@ export class Queen extends Piece {
                 const possibleSquare = board.getSquare({ row, column: col });
                 
                 if (possibleSquare.empty) {
-                    validMovements.push({ row, column: col });
+                    validMovements.push({ row, column: col, type: 'move' as Movement['type'] });
                 } else {
                     if (possibleSquare.piece!.color !== this.color) {
-                        validMovements.push({ row, column: col });
+                        validMovements.push({ row, column: col, type: 'capture' as Movement['type'] });
                     }
                     break;
                 }
