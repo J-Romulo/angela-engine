@@ -5,8 +5,6 @@ import { MovementController } from "../core/MovementController";
 // TODO Stalemate
 // TODO Checkmate
 // TODO Check
-// TODO Promotion
-// TODO AMBIGUOUS MOVES
 export class GameController {
     prompt: promptSync.Prompt
     board: Board;

@@ -2,8 +2,8 @@ import { Board } from "../board/Board";
 import { Movement, Piece } from "./Piece";
 
 export class Queen extends Piece {
-    constructor(color: 'black' | 'white') {
-        super(color, {
+    constructor(color: 'black' | 'white', type?: number, position?: { row: number, column: number }) {
+        super(color, position || {
             column: 3,
             row: color === 'black' ? 7 : 0
         }, 'Q')

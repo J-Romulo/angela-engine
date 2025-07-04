@@ -2,8 +2,8 @@ import { Board } from "../board/Board";
 import { Movement, Piece } from "./Piece"
 
 export class Bishop extends Piece {
-    constructor(color: 'black' | 'white', type: 1 | 2) {
-        super(color, {
+    constructor(color: 'black' | 'white', type: 1 | 2, position?: { row: number, column: number }) {
+        super(color, position || {
             column: type === 1 ? 2 : 5,
             row: color === 'black' ? 7 : 0
         }, 'B')

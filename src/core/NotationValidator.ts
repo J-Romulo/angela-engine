@@ -116,6 +116,10 @@ export class NotationValidator {
       return this.getPieceSymbolWithAmbiguition(notation, moveType);
     }
 
+    if(moveType.includes('promotion')){
+      return this.getPieceSymbolWithAmbiguition(notation, moveType);
+    }
+
     const pawnMovement = this.SQUARE.test(notation);
 
     if(pawnMovement) return {

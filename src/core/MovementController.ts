@@ -1,6 +1,11 @@
 import { Board } from "./board/Board";
 import { NotationValidator } from "./NotationValidator";
+import { Bishop } from "./pieces/Bishop";
+import { Knight } from "./pieces/Knight";
+import { Pawn } from "./pieces/Pawn";
 import { Movement, Piece } from "./pieces/Piece";
+import { Queen } from "./pieces/Queen";
+import { Rook } from "./pieces/Rook";
 
 const notationToColumn: { [key: string]: number } = {
     'a': 0,
@@ -11,6 +16,13 @@ const notationToColumn: { [key: string]: number } = {
     'f': 5,
     'g': 6,
     'h': 7
+}
+
+export const notationToPiece: { [key: string]: typeof Queen | typeof Rook | typeof Bishop | typeof Knight | typeof Pawn } = {
+    'Q': Queen,
+    'R': Rook,
+    'B': Bishop,
+    'N': Knight
 }
 
 export class MovementController {
@@ -43,7 +55,18 @@ export class MovementController {
         }
 
         if(validPiece) {
-            this.movePieceInTheBoard(validPiece, { row: parseInt(row) - 1, column: notationToColumn[column] });
+            if(moveType.includes('promotion')) {
+                const PromotionPieceClass = notationToPiece[move[move.length - 1]];
+
+                const promotedPiece = new PromotionPieceClass((validPiece as Piece).color, 1, (validPiece as Piece).position);
+                promotedPiece.movementsMade = (validPiece as Piece).movementsMade;
+                promotedPiece.lastPosition = (validPiece as Piece).lastPosition;
+
+                this.board.replacePiece(validPiece, promotedPiece)
+                this.movePieceInTheBoard(promotedPiece, { row: parseInt(row) - 1, column: notationToColumn[column] });
+            }else{
+                this.movePieceInTheBoard(validPiece, { row: parseInt(row) - 1, column: notationToColumn[column] });
+            }
         }
 
         this.board.setTurn(this.board.turn === 'white' ? 'black' : 'white');

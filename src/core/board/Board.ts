@@ -99,4 +99,17 @@ export class Board {
     setRound(round: number) {
         this.round = round;
     }
+
+    replacePiece(pieceToReplace: Piece, newPiece: Piece) {
+        this.squares[pieceToReplace.position.row][pieceToReplace.position.column].piece = newPiece;
+
+        const pawns = pieceToReplace.color === 'white' ? this.whitePawns : this.blackPawns;
+        const pieces = pieceToReplace.color === 'white' ? this.whitePieces : this.blackPieces;
+        const index = pawns.indexOf(pieceToReplace);
+
+        if (index > -1) {
+            pawns.splice(index, 1)
+            pieces.push(newPiece);
+        }
+    }
 }
