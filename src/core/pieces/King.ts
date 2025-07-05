@@ -1,7 +1,8 @@
 import { Board } from "../board/Board";
-import { Movement, Piece } from "./Piece";
+import { Movement, Piece, Position } from "./Piece";
 
 export class King extends Piece {
+
     constructor(color: 'black' | 'white') {
         super(color, {
             column: 4,
@@ -103,5 +104,82 @@ export class King extends Piece {
         }
 
         return validMovements;
+    }
+
+    searchForCheck(board: Board, position?: { row: number; column: number; }): boolean {
+        const currentPosition = position || this.position;
+        const kingMoves = [
+            { row: 1, column: 1 }, // Right - top
+            { row: 0, column: 1 }, // Right
+            { row: -1, column: 1 }, // Right - bottom
+
+            { row: 1, column: 0 }, // Top
+
+            { row: -1, column: 0 }, // Bottom
+
+            { row: 1, column: -1 }, // left - top
+            { row: 0, column: -1 }, // left
+            { row: -1, column: -1 }, // left - bottom
+        ];
+
+        for (const { row: rowDir, column: colDir } of kingMoves) {
+            let row = currentPosition.row + rowDir;
+            let col = currentPosition.column + colDir;
+            
+            if(row > 7 || row < 0 || col > 7 || col < 0) continue;
+            const possibleSquare = board.getSquare({ row, column: col });
+
+            if (!possibleSquare.empty && possibleSquare.piece!.color !== this.color && possibleSquare.piece instanceof King) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    checkIfMovePutsKingInCheck(board: Board, movement: Position, piece: Piece): boolean {
+        const originalPosition = {
+            row: (piece as Piece).position.row,
+            column: (piece as Piece).position.column
+        }
+
+        let oldSquare = board.getSquare({ row: (piece as Piece).position.row, column: (piece as Piece).position.column });
+        let newSquare = board.getSquare({  row: movement.row, column: movement.column });
+        piece.move({ row: movement.row, column: movement.column }, board.round, true);
+
+        const originalPiece = newSquare.piece;
+        newSquare.piece = piece;
+        newSquare.empty = false;
+
+        oldSquare.piece = null;
+        oldSquare.empty = true;
+
+        const pieces = this.color === 'white' ? [...board.blackPieces, ...board.blackPawns] : [...board.whitePieces, ...board.whitePawns];
+
+        let putsInCheck = false
+        pieces.forEach(pieceToAnalise => {
+            if (pieceToAnalise instanceof King || pieceToAnalise === originalPiece) return;
+
+            const validMovements = pieceToAnalise.validMovements(board, true);
+            if(validMovements && validMovements.length) {
+                validMovements.forEach(validMovement => {
+                    if(validMovement.check){
+                        putsInCheck = true;
+                    }
+                });
+            }
+        })
+
+        oldSquare = board.getSquare({ row: (piece as Piece).position.row, column: (piece as Piece).position.column });
+        newSquare = board.getSquare({  row: originalPosition.row, column: originalPosition.column });
+        piece.move({ row: originalPosition.row, column: originalPosition.column }, board.round, true);
+
+        newSquare.piece = piece;
+        newSquare.empty = false;
+
+        oldSquare.piece = originalPiece || null;
+        oldSquare.empty = originalPiece ? false : true;
+
+        return putsInCheck;
     }
 }

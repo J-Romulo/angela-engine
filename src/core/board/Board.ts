@@ -16,6 +16,8 @@ export class Board {
     squares: Square[][]
     round: number = 1
     turn: 'white' | 'black' = 'white'
+    check: boolean = false
+    
     whitePieces: Piece[] = []
     blackPieces: Piece[] = []
 

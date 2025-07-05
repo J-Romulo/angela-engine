@@ -1,4 +1,5 @@
 import { Board } from "../board/Board"
+import { King } from "./King";
 import { Piece, Movement } from "./Piece"
 
 export class Pawn extends Piece {
@@ -9,7 +10,7 @@ export class Pawn extends Piece {
         })
     }
 
-    validMovements(board: Board) {
+    validMovements(board: Board, checkKingInCheck = false) {
         const validMovements: Movement[] = [];
         const direction = this.color === 'white' ? 1 : -1;
         const currentRow = this.position.row;
@@ -74,5 +75,26 @@ export class Pawn extends Piece {
         }
 
         return validMovements;
+    }
+
+    searchForCheck(board: Board, position?: { row: number; column: number; }): boolean {
+        const currentPosition = position || this.position;
+        const direction = this.color === 'white' ? 1 : -1;
+
+
+        const diagonalMoves = [
+            { column: currentPosition.column + 1, row: currentPosition.row + direction },
+            { column: currentPosition.column - 1, row: currentPosition.row + direction }
+        ];
+
+        for (const move of diagonalMoves) {
+            if(move.column > 7 || move.column < 0) continue
+            const targetSquare = board.getSquare(move);
+            if (!targetSquare.empty && targetSquare.piece!.color !== this.color && targetSquare.piece instanceof King) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -48,6 +48,10 @@ export class MovementController {
             throw new Error('Invalid move for the selected piece.');
         }
 
+        if((validMove as Movement).check) {
+            this.board.check = true;
+        }
+
         const newSquare = this.board.getSquare({ row: parseInt(row) - 1, column: notationToColumn[column] });
 
         if(newSquare.empty && (validMove as Movement).type === 'en_passant') {
@@ -113,6 +117,7 @@ export class MovementController {
             }
         })
 
+        console.log('Valid Move:', validMove, 'Valid Piece:', validPiece);
         return {
             validMove,
             validPiece
