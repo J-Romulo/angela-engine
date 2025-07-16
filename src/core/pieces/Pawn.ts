@@ -22,14 +22,36 @@ export class Pawn extends Piece {
         if(oneSquare.row > 7 || oneSquare.row < 0) return
         
         if ((oneSquare.row <= 7 && oneSquare.row >= 0) && board.getSquare(oneSquare).empty) {
-            validMovements.push(oneSquare);
+            const isCheck = checkKingInCheck ? false : this.searchForCheck(board, { row: oneSquare.row, column: oneSquare.column });
+
+            if(!checkKingInCheck){
+                const king = board.getPieces('K', this.color)[0] as King;
+                const putsOwnKingInCheck = king.checkIfMovePutsKingInCheck(board, { row: oneSquare.row, column: oneSquare.column }, this);
+
+                if(!putsOwnKingInCheck) {
+                    validMovements.push({ row: oneSquare.row, column: oneSquare.column, type: 'move' as Movement['type'], check: isCheck });
+                }
+            }else {
+                validMovements.push({ row: oneSquare.row, column: oneSquare.column, type: 'move' as Movement['type'], check: isCheck });
+            }
         }
 
         // Move two squares forward on first move
         if (this.movementsMade === 0) {
             const twoSquares = { column: currentColumn, row: currentRow + 2 * direction, type: 'move' as Movement['type'] };
             if (board.getSquare(oneSquare).empty && board.getSquare(twoSquares).empty) {
-                validMovements.push(twoSquares);
+                const isCheck = checkKingInCheck ? false : this.searchForCheck(board, { row: twoSquares.row, column: twoSquares.column });
+
+                if(!checkKingInCheck){
+                    const king = board.getPieces('K', this.color)[0] as King;
+                    const putsOwnKingInCheck = king.checkIfMovePutsKingInCheck(board, { row: twoSquares.row, column: twoSquares.column }, this);
+
+                    if(!putsOwnKingInCheck) {
+                        validMovements.push({ row: twoSquares.row, column: twoSquares.column, type: 'move' as Movement['type'], check: isCheck });
+                    }
+                }else {
+                    validMovements.push({ row: twoSquares.row, column: twoSquares.column, type: 'move' as Movement['type'], check: isCheck });
+                }
             }
         }
 
@@ -43,7 +65,18 @@ export class Pawn extends Piece {
             if(move.column > 7 || move.column < 0) continue
             const targetSquare = board.getSquare(move);
             if (!targetSquare.empty && targetSquare.piece!.color !== this.color) {
-                validMovements.push(move);
+                const isCheck = checkKingInCheck ? false : this.searchForCheck(board, { row: move.row, column: move.column });
+
+                if(!checkKingInCheck){
+                    const king = board.getPieces('K', this.color)[0] as King;
+                    const putsOwnKingInCheck = king.checkIfMovePutsKingInCheck(board, { column: move.column, row: move.row }, this);
+
+                    if(!putsOwnKingInCheck) {
+                        validMovements.push({ column: move.column, row: move.row, type: 'capture' as Movement['type'], check: isCheck });
+                    }
+                }else {
+                    validMovements.push({ column: move.column, row: move.row, type: 'capture' as Movement['type'], check: targetSquare.piece instanceof King ? true : isCheck });
+                }
             }
         }
 
@@ -62,13 +95,24 @@ export class Pawn extends Piece {
                 if(move.column > 7 || move.column < 0) break
                 const targetSquare = board.getSquare(move);
                 if (!targetSquare.empty && targetSquare.piece!.color !== this.color && targetSquare.piece instanceof Pawn) {
+                    const isCheck = checkKingInCheck ? false : this.searchForCheck(board, { row: move.row, column: move.column });
+
                     if(
                         targetSquare.piece.lastPosition && 
                         targetSquare.piece.movementsMade === 2 &&
                         Math.abs(targetSquare.piece.position.row - targetSquare.piece.lastPosition.row) === 2 &&
                         targetSquare.piece.lastPosition.round === board.round - 1
                     ) {
-                        validMovements.push({ column: move.column, row: currentRow + direction, type: 'en-passant' as Movement['type'] });
+                        if(!checkKingInCheck){
+                            const king = board.getPieces('K', this.color)[0] as King;
+                            const putsOwnKingInCheck = king.checkIfMovePutsKingInCheck(board, { column: move.column, row: currentRow + direction }, this);
+
+                            if(!putsOwnKingInCheck) {
+                                validMovements.push({ column: move.column, row: currentRow + direction, type: 'en-passant' as Movement['type'], check: isCheck });
+                            }
+                        }else {
+                            validMovements.push({ column: move.column, row: currentRow + direction, type: 'en-passant' as Movement['type'], check: targetSquare.piece instanceof King ? true : isCheck });
+                        }
                     }
                 }
             }

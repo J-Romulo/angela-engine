@@ -32,7 +32,7 @@ export class Queen extends Piece {
                 const possibleSquare = board.getSquare({ row, column: col });
                 
                 if (possibleSquare.empty) {
-                    const isCheck = this.searchForCheck(board, { row, column: col });
+                    const isCheck = checkKingInCheck ? false : this.searchForCheck(board, { row, column: col });
                     if(!checkKingInCheck){
                         const king = board.getPieces('K', this.color)[0] as King;
                         const putsOwnKingInCheck = king.checkIfMovePutsKingInCheck(board, { row, column: col }, this);
@@ -45,7 +45,9 @@ export class Queen extends Piece {
                     }
                 } else {
                     if (possibleSquare.piece!.color !== this.color) {
-                        const isCheck = this.searchForCheck(board, { row, column: col });
+                        let isCheck = checkKingInCheck ? false : this.searchForCheck(board, { row, column: col });
+
+                        if(possibleSquare.piece instanceof King) isCheck = true;
 
                         if(!checkKingInCheck){
                             const king = board.getPieces('K', this.color)[0] as King;

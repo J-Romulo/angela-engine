@@ -27,7 +27,8 @@ export class Bishop extends Piece {
                 const possibleSquare = board.getSquare({ row, column: col });
                 
                 if (possibleSquare.empty) {
-                    const isCheck = this.searchForCheck(board, { row, column: col });
+                    const isCheck = checkKingInCheck ? false : this.searchForCheck(board, { row, column: col });
+
                     if(!checkKingInCheck){
                         const king = board.getPieces('K', this.color)[0] as King;
                         const putsOwnKingInCheck = king.checkIfMovePutsKingInCheck(board, { row, column: col }, this);
@@ -40,7 +41,7 @@ export class Bishop extends Piece {
                     }
                 } else {
                     if (possibleSquare.piece!.color !== this.color) {
-                        const isCheck = this.searchForCheck(board, { row, column: col });
+                        const isCheck = checkKingInCheck ? false : this.searchForCheck(board, { row, column: col });
 
                         if(!checkKingInCheck){
                             const king = board.getPieces('K', this.color)[0] as King;
@@ -50,7 +51,7 @@ export class Bishop extends Piece {
                                 validMovements.push({ row, column: col, type: 'capture' as Movement['type'], check: isCheck });
                             }
                         }else {
-                            validMovements.push({ row, column: col, type: 'capture' as Movement['type'], check: isCheck });
+                            validMovements.push({ row, column: col, type: 'capture' as Movement['type'], check: possibleSquare.piece instanceof King ? true : isCheck });
                         }
                     }
                     break;

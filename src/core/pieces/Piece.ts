@@ -29,7 +29,8 @@ export abstract class Piece {
     lastPosition?: LastPosition
     name: string
     movementsMade = 0
-
+    captured = false
+    
     constructor(color: 'black' | 'white', position: Position, name = '') {
         this.color = color
         this.position = position

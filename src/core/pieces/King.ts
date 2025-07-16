@@ -36,7 +36,10 @@ export class King extends Piece {
 
             if(row > 7 || row < 0 || col > 7 || col < 0) continue;
             const possibleSquare = board.getSquare({ row, column: col });
-            
+            const putsInCheck = this.checkIfMovePutsKingInCheck(board, { row, column: col }, this);
+
+            if(putsInCheck) continue;
+
             if (possibleSquare.empty) {
                 validMovements.push({ row, column: col, type: 'move' as Movement['type'] });
             } else {
@@ -154,7 +157,7 @@ export class King extends Piece {
         oldSquare.piece = null;
         oldSquare.empty = true;
 
-        const pieces = this.color === 'white' ? [...board.blackPieces, ...board.blackPawns] : [...board.whitePieces, ...board.whitePawns];
+        const pieces = this.color === 'white' ? [...board.blackPieces.filter((piece) => !piece.captured), ...board.blackPawns.filter((piece) => !piece.captured)] : [...board.whitePieces.filter((piece) => !piece.captured), ...board.whitePawns.filter((piece) => !piece.captured)];
 
         let putsInCheck = false
         pieces.forEach(pieceToAnalise => {
