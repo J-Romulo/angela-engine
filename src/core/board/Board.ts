@@ -87,11 +87,14 @@ export class Board {
         return this.squares[position.row][position.column]
     }
 
-    getPieces(name: string, color: 'black' | 'white'): Piece[] {
-        if(name === '') return color === 'black' ? this.blackPawns : this.whitePawns;
-
+    getPieces(name: string, color: 'black' | 'white', captured = false): Piece[] {
+        if(name === '') {
+            const pawns = color === 'black' ? this.blackPawns : this.whitePawns;
+            return pawns.filter(piece => piece.captured === captured);
+        }
+        
         const pieces = color === 'black' ? this.blackPieces : this.whitePieces;
-        return pieces.filter(piece => piece.name === name);
+        return pieces.filter(piece => (piece.name === name && piece.captured === captured));
     }
 
     setTurn(turn: 'black' | 'white') {

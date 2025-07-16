@@ -117,7 +117,6 @@ export class MovementController {
             }
         })
 
-        console.log('Valid Move:', validMove, 'Valid Piece:', validPiece);
         return {
             validMove,
             validPiece
@@ -165,6 +164,10 @@ export class MovementController {
         const oldSquare = this.board.getSquare({ row: (piece as Piece).position.row, column: (piece as Piece).position.column });
         const newSquare = this.board.getSquare({  row: newPosition.row, column: newPosition.column });
         piece.move({ row: newPosition.row, column: newPosition.column }, this.board.round);
+
+        if(newSquare.piece){
+            newSquare.piece.captured = true
+        }
 
         newSquare.piece = piece;
         newSquare.empty = false;
