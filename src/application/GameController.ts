@@ -3,7 +3,7 @@ import promptSync from "prompt-sync"
 import { MovementController } from "../core/MovementController";
 
 // TODO Stalemate
-// TODO Checkmate
+// TODO No valid moves solo king
 export class GameController {
     prompt: promptSync.Prompt
     board: Board;
@@ -108,7 +108,10 @@ export class GameController {
             const whiteMove = this.prompt(`${this.board.turn} to move: `);
 
             try {
-                const matchFinished = this.moveController.executeMovement(whiteMove);
+                matchFinished = this.moveController.executeMovement(whiteMove);
+                if(matchFinished){
+                    this.printBoard();
+                }
             } catch (error: any) {
                 console.error(error.message);
             }

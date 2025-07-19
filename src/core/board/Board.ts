@@ -87,7 +87,11 @@ export class Board {
         return this.squares[position.row][position.column]
     }
 
-    getPieces(name: string, color: 'black' | 'white', captured = false): Piece[] {
+    getPieces(name: string | null, color: 'black' | 'white', captured = false): Piece[] {
+        if(name === null) {
+            return color === 'black' ? [...this.blackPieces.filter(pieces => !pieces.captured), ...this.blackPawns.filter(pieces => !pieces.captured)] : [...this.whitePieces.filter(pieces => !pieces.captured), ...this.whitePawns.filter(pieces => !pieces.captured)];
+        }
+
         if(name === '') {
             const pawns = color === 'black' ? this.blackPawns : this.whitePawns;
             return pawns.filter(piece => piece.captured === captured);

@@ -48,10 +48,6 @@ export class MovementController {
             throw new Error('Invalid move for the selected piece.');
         }
 
-        if((validMove as Movement).check) {
-            this.board.check = true;
-        }
-
         const newSquare = this.board.getSquare({ row: parseInt(row) - 1, column: notationToColumn[column] });
 
         if(newSquare.empty && (validMove as Movement).type === 'en_passant') {
@@ -75,6 +71,15 @@ export class MovementController {
 
         this.board.setTurn(this.board.turn === 'white' ? 'black' : 'white');
         this.board.setRound(this.board.round + 1);
+        if((validMove as Movement).check) {
+            this.board.check = true;
+            if(this.verifyCheckmate()) {
+                console.log('Checkmate! Game over.');
+                return true
+            }
+        }else {
+            this.board.check = false;
+        }
 
         return false
     }
@@ -174,5 +179,30 @@ export class MovementController {
 
         oldSquare.piece = null;
         oldSquare.empty = true;
+    }
+
+    verifyCheckmate() {
+        const king = this.board.getPieces('K', this.board.turn)[0];
+
+        if(!king) {
+            throw new Error('King not found.');
+        }
+
+        const kingValidMovements = king.validMovements(this.board, false);
+
+        if(kingValidMovements && kingValidMovements.length > 0) {
+            return false; // King can still move
+        }
+
+        const pieces = this.board.getPieces(null, this.board.turn);
+
+        for(const piece of pieces) {
+            const validMovements = piece.validMovements(this.board, false);
+            if(validMovements && validMovements.length > 0) {
+                return false; // At least one piece can still move
+            }
+        }
+
+        return true;
     }
 }
