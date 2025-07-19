@@ -2,8 +2,7 @@ import { Board } from "../core/board/Board";
 import promptSync from "prompt-sync"
 import { MovementController } from "../core/MovementController";
 
-// TODO Stalemate
-// TODO No valid moves solo king
+// TODO Draw by repetition, 50 moves without pawn movement or capture, insufficient material
 export class GameController {
     prompt: promptSync.Prompt
     board: Board;

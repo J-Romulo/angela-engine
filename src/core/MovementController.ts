@@ -73,11 +73,15 @@ export class MovementController {
         this.board.setRound(this.board.round + 1);
         if((validMove as Movement).check) {
             this.board.check = true;
-            if(this.verifyCheckmate()) {
-                console.log('Checkmate! Game over.');
+            if(this.verifyNoValidMoves()) {
+                console.log('Checkmate! Game over.' + (this.board.turn === 'white' ? 'Black' : 'White') + ' wins!');
                 return true
             }
         }else {
+            if(this.verifyNoValidMoves()) {
+                console.log('Stalemate! Game over. It\'s a draw.');
+                return true
+            }
             this.board.check = false;
         }
 
@@ -181,7 +185,7 @@ export class MovementController {
         oldSquare.empty = true;
     }
 
-    verifyCheckmate() {
+    verifyNoValidMoves() {
         const king = this.board.getPieces('K', this.board.turn)[0];
 
         if(!king) {
