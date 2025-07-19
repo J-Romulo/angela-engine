@@ -3,19 +3,26 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node ./src/index.ts"
+    "start": "ts-node ./src/index.ts",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "eslint": "^9.30.0",
     "prompt-sync": "^4.2.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.2"
   },
   "devDependencies": {
-    "@types/prompt-sync": "^4.2.3"
+    "@eslint/js": "^9.31.0",
+    "@types/prompt-sync": "^4.2.3",
+    "eslint": "^9.31.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.3",
+    "globals": "^16.3.0",
+    "typescript-eslint": "^8.37.0"
   }
 }

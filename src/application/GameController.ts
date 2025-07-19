@@ -1,13 +1,13 @@
 import { Board } from "../core/board/Board";
-import promptSync from "prompt-sync"
+import promptSync from "prompt-sync";
 import { MovementController } from "../core/MovementController";
 
 // TODO Draw by repetition, 50 moves without pawn movement or capture, insufficient material
 export class GameController {
-    prompt: promptSync.Prompt
+    prompt: promptSync.Prompt;
     board: Board;
     moveController: MovementController;
-    
+
     constructor() {
         this.prompt = promptSync({ sigint: true });
         this.board = new Board();
@@ -34,13 +34,13 @@ export class GameController {
             const choice = this.prompt("Choose an option (1-3): ");
 
             switch (choice.trim()) {
-                case '1':
+                case "1":
                     this.playVsComputer();
                     break;
-                case '2':
+                case "2":
                     this.playMultiplayer();
                     break;
-                case '3':
+                case "3":
                     console.log("Thanks for playing! Goodbye!");
                     return;
                 default:
@@ -74,9 +74,9 @@ export class GameController {
         console.log("Note: Computer AI not implemented yet.");
         console.log("You'll be playing as both sides for now.");
         console.log();
-        
+
         const confirm = this.prompt("Continue anyway? (y/n): ");
-        if (confirm.toLowerCase() === 'y') {
+        if (confirm.toLowerCase() === "y") {
             this.newGame();
             this.gameLoop();
         }
@@ -91,16 +91,16 @@ export class GameController {
         console.log("Two players will take turns on the same computer.");
         console.log("White moves first, then Black alternates.");
         console.log();
-        
+
         const confirm = this.prompt("Start game? (y/n): ");
-        if (confirm.toLowerCase() === 'y') {
+        if (confirm.toLowerCase() === "y") {
             this.newGame();
             this.gameLoop();
         }
     }
 
     gameLoop() {
-        let matchFinished = false
+        let matchFinished = false;
         while (!matchFinished) {
             this.printBoard();
 
@@ -108,9 +108,10 @@ export class GameController {
 
             try {
                 matchFinished = this.moveController.executeMovement(whiteMove);
-                if(matchFinished){
+                if (matchFinished) {
                     this.printBoard();
                 }
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } catch (error: any) {
                 console.error(error.message);
             }
@@ -134,54 +135,61 @@ export class GameController {
             white: "\x1b[37m",
             brightWhite: "\x1b[97m",
             // Texto em negrito
-            bold: "\x1b[1m"
+            bold: "\x1b[1m",
         };
-        
+
         const pieceSymbols = {
-            King: { white: '♔', black: '♚' },
-            Queen: { white: '♕', black: '♛' },
-            Rook: { white: '♖', black: '♜' },
-            Bishop: { white: '♗', black: '♝' },
-            Knight: { white: '♘', black: '♞' },
-            Pawn: { white: '♙', black: '♟' }
+            King: { white: "♔", black: "♚" },
+            Queen: { white: "♕", black: "♛" },
+            Rook: { white: "♖", black: "♜" },
+            Bishop: { white: "♗", black: "♝" },
+            Knight: { white: "♘", black: "♞" },
+            Pawn: { white: "♙", black: "♟" },
         };
-        
-        console.log('   a   b   c   d   e   f   g   h');
-        console.log(' ┌───┬───┬───┬───┬───┬───┬───┬───┐');
-        
+
+        console.log("   a   b   c   d   e   f   g   h");
+        console.log(" ┌───┬───┬───┬───┬───┬───┬───┬───┐");
+
         // Imprime cada linha
         for (let row = 7; row >= 0; row--) {
             // Imprime o número da linha
             process.stdout.write(`${row + 1}│`);
-        
+
             for (let col = 0; col < 8; col++) {
-            const square = this.board.squares[row][col];
-            const bgColor = square.color === 'black' ? colors.bgBlack : colors.bgWhite;
-            const textColor = square.piece?.color === 'white' ? colors.brightWhite : colors.black;
-            
-            // Obtém o símbolo da peça
-            let symbol = ' ';
-            if (square.piece) {
-                // Extrai o tipo da peça do nome do construtor
-                const pieceType = square.piece.constructor.name as keyof typeof pieceSymbols;
-                symbol = pieceSymbols[pieceType][square.piece.color];
+                const square = this.board.squares[row][col];
+                const bgColor =
+                    square.color === "black" ? colors.bgBlack : colors.bgWhite;
+                const textColor =
+                    square.piece?.color === "white"
+                        ? colors.brightWhite
+                        : colors.black;
+
+                // Obtém o símbolo da peça
+                let symbol = " ";
+                if (square.piece) {
+                    // Extrai o tipo da peça do nome do construtor
+                    const pieceType = square.piece.constructor
+                        .name as keyof typeof pieceSymbols;
+                    symbol = pieceSymbols[pieceType][square.piece.color];
+                }
+
+                // Imprime a casa com cores apropriadas e mais espaço
+                process.stdout.write(
+                    `${bgColor}${textColor} ${symbol} ${colors.reset}│`,
+                );
             }
-        
-            // Imprime a casa com cores apropriadas e mais espaço
-            process.stdout.write(`${bgColor}${textColor} ${symbol} ${colors.reset}│`);
-            }
-        
+
             // Imprime o número da linha novamente no lado direito
             console.log(` ${row + 1}`);
-        
+
             if (row > 0) {
-            console.log(' ├───┼───┼───┼───┼───┼───┼───┼───┤');
+                console.log(" ├───┼───┼───┼───┼───┼───┼───┼───┤");
             }
         }
-        
-        console.log(' └───┴───┴───┴───┴───┴───┴───┴───┘');
-        console.log('   a   b   c   d   e   f   g   h');
-        
+
+        console.log(" └───┴───┴───┴───┴───┴───┴───┴───┘");
+        console.log("   a   b   c   d   e   f   g   h");
+
         console.log(`\nRound: ${this.board.round}, Turn: ${this.board.turn}`);
     }
 }

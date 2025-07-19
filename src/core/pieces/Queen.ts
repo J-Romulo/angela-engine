@@ -11,14 +11,22 @@ export class Queen extends Piece {
         { row: 1, column: 1 }, // Top-right diagonal
         { row: 1, column: -1 }, // Top-left diagonal
         { row: -1, column: 1 }, // Bottom-right diagonal
-        { row: -1, column: -1 } // Bottom-left diagonal
+        { row: -1, column: -1 }, // Bottom-left diagonal
     ];
 
-    constructor(color: 'black' | 'white', type?: number, position?: { row: number, column: number }) {
-        super(color, position || {
-            column: 3,
-            row: color === 'black' ? 7 : 0
-        }, 'Q')
+    constructor(
+        color: "black" | "white",
+        type?: number,
+        position?: { row: number; column: number },
+    ) {
+        super(
+            color,
+            position || {
+                column: 3,
+                row: color === "black" ? 7 : 0,
+            },
+            "Q",
+        );
     }
 
     validMovements(board: Board, checkKingInCheck = false) {
@@ -30,34 +38,85 @@ export class Queen extends Piece {
 
             while (row >= 0 && row < 8 && col >= 0 && col < 8) {
                 const possibleSquare = board.getSquare({ row, column: col });
-                
-                if (possibleSquare.empty) {
-                    const isCheck = checkKingInCheck ? false : this.searchForCheck(board, this.movementDirections, { row, column: col }, true);
-                    if(!checkKingInCheck){
-                        const king = board.getPieces('K', this.color)[0] as King;
-                        const putsOwnKingInCheck = king.checkIfMovePutsKingInCheck(board, { row, column: col }, this);
 
-                        if(!putsOwnKingInCheck) {
-                            validMovements.push({ row, column: col, type: 'move' as Movement['type'], check: isCheck });
+                if (possibleSquare.empty) {
+                    const isCheck = checkKingInCheck
+                        ? false
+                        : this.searchForCheck(
+                              board,
+                              this.movementDirections,
+                              { row, column: col },
+                              true,
+                          );
+                    if (!checkKingInCheck) {
+                        const king = board.getPieces(
+                            "K",
+                            this.color,
+                        )[0] as King;
+                        const putsOwnKingInCheck =
+                            king.checkIfMovePutsKingInCheck(
+                                board,
+                                { row, column: col },
+                                this,
+                            );
+
+                        if (!putsOwnKingInCheck) {
+                            validMovements.push({
+                                row,
+                                column: col,
+                                type: "move" as Movement["type"],
+                                check: isCheck,
+                            });
                         }
-                    }else {
-                        validMovements.push({ row, column: col, type: 'move' as Movement['type'], check: isCheck });
+                    } else {
+                        validMovements.push({
+                            row,
+                            column: col,
+                            type: "move" as Movement["type"],
+                            check: isCheck,
+                        });
                     }
                 } else {
                     if (possibleSquare.piece!.color !== this.color) {
-                        let isCheck = checkKingInCheck ? false : this.searchForCheck(board, this.movementDirections,{ row, column: col }, true);
+                        let isCheck = checkKingInCheck
+                            ? false
+                            : this.searchForCheck(
+                                  board,
+                                  this.movementDirections,
+                                  { row, column: col },
+                                  true,
+                              );
 
-                        if(possibleSquare.piece instanceof King) isCheck = true;
+                        if (possibleSquare.piece instanceof King)
+                            isCheck = true;
 
-                        if(!checkKingInCheck){
-                            const king = board.getPieces('K', this.color)[0] as King;
-                            const putsOwnKingInCheck = king.checkIfMovePutsKingInCheck(board, { row, column: col }, this);
+                        if (!checkKingInCheck) {
+                            const king = board.getPieces(
+                                "K",
+                                this.color,
+                            )[0] as King;
+                            const putsOwnKingInCheck =
+                                king.checkIfMovePutsKingInCheck(
+                                    board,
+                                    { row, column: col },
+                                    this,
+                                );
 
-                            if(!putsOwnKingInCheck) {
-                                validMovements.push({ row, column: col, type: 'capture' as Movement['type'], check: isCheck });
+                            if (!putsOwnKingInCheck) {
+                                validMovements.push({
+                                    row,
+                                    column: col,
+                                    type: "capture" as Movement["type"],
+                                    check: isCheck,
+                                });
                             }
-                        }else {
-                            validMovements.push({ row, column: col, type: 'capture' as Movement['type'], check: isCheck });
+                        } else {
+                            validMovements.push({
+                                row,
+                                column: col,
+                                type: "capture" as Movement["type"],
+                                check: isCheck,
+                            });
                         }
                     }
                     break;
