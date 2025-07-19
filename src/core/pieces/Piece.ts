@@ -1,4 +1,5 @@
 import { Board } from "../board/Board"
+import { King } from "./King"
 
 export type Position = {
     column: number,
@@ -46,7 +47,32 @@ export abstract class Piece {
     }
 
     abstract validMovements(board: Board, checkKingInCheck?: boolean): Movement[] | undefined
-    abstract searchForCheck(board: Board, position?: { row: number, column: number }): boolean
+
+    searchForCheck(board: Board, directions: Position[], position: Position, continuosMove = false): boolean {
+        for (const { row: rowDir, column: colDir } of directions) {
+            let row = position.row + rowDir;
+            let col = position.column + colDir;
+
+            let squaresMoved = 0;
+            while (row >= 0 && row < 8 && col >= 0 && col < 8 && (continuosMove || squaresMoved < 1)) {
+                squaresMoved++;
+                const possibleSquare = board.getSquare({ row, column: col });
+                
+                if (possibleSquare.empty) {
+                    row += rowDir;
+                    col += colDir;
+                    continue;
+                }
+
+                if (possibleSquare.piece!.color !== this.color && possibleSquare.piece instanceof King) {
+                    return true;
+                }
+                break;
+            }
+        }
+
+        return false;
+    }
 
     calculateMovementsMade(oldPosition: Position, newPosition: Position) {
         this.movementsMade += Math.abs(oldPosition.row - newPosition.row) + Math.abs(oldPosition.column - newPosition.column);

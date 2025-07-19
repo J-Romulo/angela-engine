@@ -3,6 +3,13 @@ import { King } from "./King";
 import { Movement, Piece } from "./Piece"
 
 export class Rook extends Piece {
+    movementDirections = [
+            { row: 0, column: 1 }, // Right
+            { row: 0, column: -1 }, // Left
+            { row: 1, column: 0 }, // Top
+            { row: -1, column: 0 } // Bottom
+    ];
+
     constructor(color: 'black' | 'white', type: 1 | 2, position?: { row: number, column: number }) {
         super(color, position || {
             column: type === 1 ? 0 : 7,
@@ -15,14 +22,7 @@ export class Rook extends Piece {
         const currentRow = this.position.row;
         const currentColumn = this.position.column;
 
-        const directions = [
-            { row: 0, column: 1 }, // Right
-            { row: 0, column: -1 }, // Left
-            { row: 1, column: 0 }, // Top
-            { row: -1, column: 0 } // Bottom
-        ];
-
-        for (const { row: rowDir, column: colDir } of directions) {
+        for (const { row: rowDir, column: colDir } of this.movementDirections) {
             let row = this.position.row + rowDir;
             let col = this.position.column + colDir;
 
@@ -30,7 +30,7 @@ export class Rook extends Piece {
                 const possibleSquare = board.getSquare({ row, column: col });
                 
                 if (possibleSquare.empty) {
-                    const isCheck = checkKingInCheck ? false : this.searchForCheck(board, { row, column: col });
+                    const isCheck = checkKingInCheck ? false : this.searchForCheck(board, this.movementDirections, { row, column: col }, true);
                     if(!checkKingInCheck){
                         const king = board.getPieces('K', this.color)[0] as King;
                         const putsOwnKingInCheck = king.checkIfMovePutsKingInCheck(board, { row, column: col }, this);
@@ -43,7 +43,7 @@ export class Rook extends Piece {
                     }
                 } else {
                     if (possibleSquare.piece!.color !== this.color) {
-                        const isCheck = checkKingInCheck ? false : this.searchForCheck(board, { row, column: col });
+                        const isCheck = checkKingInCheck ? false : this.searchForCheck(board, this.movementDirections, { row, column: col });
 
                         if(!checkKingInCheck){
                             const king = board.getPieces('K', this.color)[0] as King;
@@ -122,37 +122,5 @@ export class Rook extends Piece {
         }
 
         return validMovements;
-    }
-
-    searchForCheck(board: Board, position?: { row: number; column: number; }): boolean {
-        const currentPosition = position || this.position;
-        const directions = [
-            { row: 0, column: 1 }, // Right
-            { row: 0, column: -1 }, // Left
-            { row: 1, column: 0 }, // Top
-            { row: -1, column: 0 } // Bottom
-        ];
-
-        for (const { row: rowDir, column: colDir } of directions) {
-            let row = currentPosition.row + rowDir;
-            let col = currentPosition.column + colDir;
-
-            while (row >= 0 && row < 8 && col >= 0 && col < 8) {
-                const possibleSquare = board.getSquare({ row, column: col });
-                
-                if (possibleSquare.empty) {
-                    row += rowDir;
-                    col += colDir;
-                    continue;
-                }
-
-                if (possibleSquare.piece!.color !== this.color && possibleSquare.piece instanceof King) {
-                    return true;
-                }
-                break;
-            }
-        }
-
-        return false;
     }
 }

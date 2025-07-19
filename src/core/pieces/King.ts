@@ -2,6 +2,19 @@ import { Board } from "../board/Board";
 import { Movement, Piece, Position } from "./Piece";
 
 export class King extends Piece {
+    movementDirections = [
+        { row: 1, column: 1 }, // Right - top
+        { row: 0, column: 1 }, // Right
+        { row: -1, column: 1 }, // Right - bottom
+
+        { row: 1, column: 0 }, // Top
+
+        { row: -1, column: 0 }, // Bottom
+
+        { row: 1, column: -1 }, // left - top
+        { row: 0, column: -1 }, // left
+        { row: -1, column: -1 }, // left - bottom
+    ];
 
     constructor(color: 'black' | 'white') {
         super(color, {
@@ -15,22 +28,7 @@ export class King extends Piece {
         const currentRow = this.position.row;
         const currentColumn = this.position.column;
 
-        const kingMoves = [
-            { row: 1, column: 1 }, // Right - top
-            { row: 0, column: 1 }, // Right
-            { row: -1, column: 1 }, // Right - bottom
-
-            { row: 1, column: 0 }, // Top
-
-            { row: -1, column: 0 }, // Bottom
-
-            { row: 1, column: -1 }, // left - top
-            { row: 0, column: -1 }, // left
-            { row: -1, column: -1 }, // left - bottom
-
-        ];
-
-        for (const { row: rowDir, column: colDir } of kingMoves) {
+        for (const { row: rowDir, column: colDir } of this.movementDirections) {
             let row = this.position.row + rowDir;
             let col = this.position.column + colDir;
 
@@ -107,37 +105,6 @@ export class King extends Piece {
         }
 
         return validMovements;
-    }
-
-    searchForCheck(board: Board, position?: { row: number; column: number; }): boolean {
-        const currentPosition = position || this.position;
-        const kingMoves = [
-            { row: 1, column: 1 }, // Right - top
-            { row: 0, column: 1 }, // Right
-            { row: -1, column: 1 }, // Right - bottom
-
-            { row: 1, column: 0 }, // Top
-
-            { row: -1, column: 0 }, // Bottom
-
-            { row: 1, column: -1 }, // left - top
-            { row: 0, column: -1 }, // left
-            { row: -1, column: -1 }, // left - bottom
-        ];
-
-        for (const { row: rowDir, column: colDir } of kingMoves) {
-            let row = currentPosition.row + rowDir;
-            let col = currentPosition.column + colDir;
-            
-            if(row > 7 || row < 0 || col > 7 || col < 0) continue;
-            const possibleSquare = board.getSquare({ row, column: col });
-
-            if (!possibleSquare.empty && possibleSquare.piece!.color !== this.color && possibleSquare.piece instanceof King) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     checkIfMovePutsKingInCheck(board: Board, movement: Position, piece: Piece): boolean {

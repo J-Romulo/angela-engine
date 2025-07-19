@@ -3,6 +3,13 @@ import { King } from "./King";
 import { Piece, Movement } from "./Piece"
 
 export class Pawn extends Piece {
+    movementDirection = this.color === 'white' ? 1 : -1;
+
+    diagonalMoves = [
+        { column: this.position.column + 1, row: this.position.row + this.movementDirection },
+        { column: this.position.column - 1, row: this.position.row + this.movementDirection }
+    ];
+
     constructor(color: 'black' | 'white', column: number) {
         super(color, {
             column,
@@ -22,7 +29,7 @@ export class Pawn extends Piece {
         if(oneSquare.row > 7 || oneSquare.row < 0) return
         
         if ((oneSquare.row <= 7 && oneSquare.row >= 0) && board.getSquare(oneSquare).empty) {
-            const isCheck = checkKingInCheck ? false : this.searchForCheck(board, { row: oneSquare.row, column: oneSquare.column });
+            const isCheck = checkKingInCheck ? false : this.searchForCheck(board, this.diagonalMoves, { row: oneSquare.row, column: oneSquare.column });
 
             if(!checkKingInCheck){
                 const king = board.getPieces('K', this.color)[0] as King;
@@ -40,7 +47,7 @@ export class Pawn extends Piece {
         if (this.movementsMade === 0) {
             const twoSquares = { column: currentColumn, row: currentRow + 2 * direction, type: 'move' as Movement['type'] };
             if (board.getSquare(oneSquare).empty && board.getSquare(twoSquares).empty) {
-                const isCheck = checkKingInCheck ? false : this.searchForCheck(board, { row: twoSquares.row, column: twoSquares.column });
+                const isCheck = checkKingInCheck ? false : this.searchForCheck(board, this.diagonalMoves, { row: twoSquares.row, column: twoSquares.column });
 
                 if(!checkKingInCheck){
                     const king = board.getPieces('K', this.color)[0] as King;
@@ -65,7 +72,7 @@ export class Pawn extends Piece {
             if(move.column > 7 || move.column < 0) continue
             const targetSquare = board.getSquare(move);
             if (!targetSquare.empty && targetSquare.piece!.color !== this.color) {
-                const isCheck = checkKingInCheck ? false : this.searchForCheck(board, { row: move.row, column: move.column });
+                const isCheck = checkKingInCheck ? false : this.searchForCheck(board, this.diagonalMoves, { row: move.row, column: move.column });
 
                 if(!checkKingInCheck){
                     const king = board.getPieces('K', this.color)[0] as King;
@@ -95,7 +102,7 @@ export class Pawn extends Piece {
                 if(move.column > 7 || move.column < 0) break
                 const targetSquare = board.getSquare(move);
                 if (!targetSquare.empty && targetSquare.piece!.color !== this.color && targetSquare.piece instanceof Pawn) {
-                    const isCheck = checkKingInCheck ? false : this.searchForCheck(board, { row: move.row, column: move.column });
+                    const isCheck = checkKingInCheck ? false : this.searchForCheck(board, this.diagonalMoves, { row: move.row, column: move.column });
 
                     if(
                         targetSquare.piece.lastPosition && 
@@ -108,10 +115,10 @@ export class Pawn extends Piece {
                             const putsOwnKingInCheck = king.checkIfMovePutsKingInCheck(board, { column: move.column, row: currentRow + direction }, this);
 
                             if(!putsOwnKingInCheck) {
-                                validMovements.push({ column: move.column, row: currentRow + direction, type: 'en-passant' as Movement['type'], check: isCheck });
+                                validMovements.push({ column: move.column, row: currentRow + direction, type: 'en_passant' as Movement['type'], check: isCheck });
                             }
                         }else {
-                            validMovements.push({ column: move.column, row: currentRow + direction, type: 'en-passant' as Movement['type'], check: targetSquare.piece instanceof King ? true : isCheck });
+                            validMovements.push({ column: move.column, row: currentRow + direction, type: 'en_passant' as Movement['type'], check: targetSquare.piece instanceof King ? true : isCheck });
                         }
                     }
                 }
@@ -119,26 +126,5 @@ export class Pawn extends Piece {
         }
 
         return validMovements;
-    }
-
-    searchForCheck(board: Board, position?: { row: number; column: number; }): boolean {
-        const currentPosition = position || this.position;
-        const direction = this.color === 'white' ? 1 : -1;
-
-
-        const diagonalMoves = [
-            { column: currentPosition.column + 1, row: currentPosition.row + direction },
-            { column: currentPosition.column - 1, row: currentPosition.row + direction }
-        ];
-
-        for (const move of diagonalMoves) {
-            if(move.column > 7 || move.column < 0) continue
-            const targetSquare = board.getSquare(move);
-            if (!targetSquare.empty && targetSquare.piece!.color !== this.color && targetSquare.piece instanceof King) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }
