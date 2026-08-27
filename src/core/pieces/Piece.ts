@@ -33,6 +33,8 @@ export abstract class Piece {
     movementsMade = 0;
     captured = false;
 
+    abstract value: number;
+
     constructor(color: "black" | "white", position: Position, name = "") {
         this.color = color;
         this.position = position;

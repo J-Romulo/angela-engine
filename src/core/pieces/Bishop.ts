@@ -3,6 +3,8 @@ import { King } from "./King";
 import { Movement, Piece } from "./Piece";
 
 export class Bishop extends Piece {
+    value = 3;
+
     movementDirections = [
         { row: 1, column: 1 }, // Top-right
         { row: 1, column: -1 }, // Top-left

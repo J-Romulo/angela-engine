@@ -3,17 +3,13 @@ import { King } from "./King";
 import { Piece, Movement } from "./Piece";
 
 export class Pawn extends Piece {
+    value = 1;
+
     movementDirection = this.color === "white" ? 1 : -1;
 
-    diagonalMoves = [
-        {
-            column: this.position.column + 1,
-            row: this.position.row + this.movementDirection,
-        },
-        {
-            column: this.position.column - 1,
-            row: this.position.row + this.movementDirection,
-        },
+    attackDirections = [
+        { column: 1, row: this.movementDirection },
+        { column: -1, row: this.movementDirection },
     ];
 
     constructor(color: "black" | "white", column: number) {
@@ -28,6 +24,10 @@ export class Pawn extends Piece {
         const direction = this.color === "white" ? 1 : -1;
         const currentRow = this.position.row;
         const currentColumn = this.position.column;
+        const promotionRow = direction === 1 ? 7 : 0;
+
+        const forwardType: Movement["type"] =
+            currentRow + direction === promotionRow ? "promotion" : "move";
 
         // Move one square forward
         const oneSquare = {
@@ -45,7 +45,7 @@ export class Pawn extends Piece {
         ) {
             const isCheck = checkKingInCheck
                 ? false
-                : this.searchForCheck(board, this.diagonalMoves, {
+                : this.searchForCheck(board, this.attackDirections, {
                       row: oneSquare.row,
                       column: oneSquare.column,
                   });
@@ -62,7 +62,7 @@ export class Pawn extends Piece {
                     validMovements.push({
                         row: oneSquare.row,
                         column: oneSquare.column,
-                        type: "move" as Movement["type"],
+                        type: forwardType,
                         check: isCheck,
                     });
                 }
@@ -70,7 +70,7 @@ export class Pawn extends Piece {
                 validMovements.push({
                     row: oneSquare.row,
                     column: oneSquare.column,
-                    type: "move" as Movement["type"],
+                    type: forwardType,
                     check: isCheck,
                 });
             }
@@ -89,7 +89,7 @@ export class Pawn extends Piece {
             ) {
                 const isCheck = checkKingInCheck
                     ? false
-                    : this.searchForCheck(board, this.diagonalMoves, {
+                    : this.searchForCheck(board, this.attackDirections, {
                           row: twoSquares.row,
                           column: twoSquares.column,
                       });
@@ -144,10 +144,13 @@ export class Pawn extends Piece {
             ) {
                 const isCheck = checkKingInCheck
                     ? false
-                    : this.searchForCheck(board, this.diagonalMoves, {
+                    : this.searchForCheck(board, this.attackDirections, {
                           row: move.row,
                           column: move.column,
                       });
+
+                const captureType: Movement["type"] =
+                    move.row === promotionRow ? "promotion_capture" : "capture";
 
                 if (!checkKingInCheck) {
                     const king = board.getPieces("K", this.color)[0] as King;
@@ -161,7 +164,7 @@ export class Pawn extends Piece {
                         validMovements.push({
                             column: move.column,
                             row: move.row,
-                            type: "capture" as Movement["type"],
+                            type: captureType,
                             check: isCheck,
                         });
                     }
@@ -169,7 +172,7 @@ export class Pawn extends Piece {
                     validMovements.push({
                         column: move.column,
                         row: move.row,
-                        type: "capture" as Movement["type"],
+                        type: captureType,
                         check:
                             targetSquare.piece instanceof King ? true : isCheck,
                     });
@@ -198,7 +201,7 @@ export class Pawn extends Piece {
                 ) {
                     const isCheck = checkKingInCheck
                         ? false
-                        : this.searchForCheck(board, this.diagonalMoves, {
+                        : this.searchForCheck(board, this.attackDirections, {
                               row: move.row,
                               column: move.column,
                           });

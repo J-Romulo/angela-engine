@@ -2,6 +2,8 @@ import { Board } from "../board/Board";
 import { Movement, Piece, Position } from "./Piece";
 
 export class King extends Piece {
+    value = 0;
+
     movementDirections = [
         { row: 1, column: 1 }, // Right - top
         { row: 0, column: 1 }, // Right

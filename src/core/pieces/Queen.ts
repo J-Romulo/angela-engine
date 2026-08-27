@@ -3,6 +3,8 @@ import { King } from "./King";
 import { Movement, Piece } from "./Piece";
 
 export class Queen extends Piece {
+    value = 9;
+
     movementDirections = [
         { row: 0, column: 1 }, // Right
         { row: 0, column: -1 }, // Left

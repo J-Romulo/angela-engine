@@ -3,6 +3,8 @@ import { King } from "./King";
 import { Movement, Piece } from "./Piece";
 
 export class Rook extends Piece {
+    value = 5;
+
     movementDirections = [
         { row: 0, column: 1 }, // Right
         { row: 0, column: -1 }, // Left

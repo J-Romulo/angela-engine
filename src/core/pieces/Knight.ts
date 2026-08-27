@@ -3,6 +3,8 @@ import { King } from "./King";
 import { Movement, Piece } from "./Piece";
 
 export class Knight extends Piece {
+    value = 3;
+
     movementJumps = [
         { row: 1, column: 2 }, // Right - top
         { row: -1, column: 2 }, // Right - bottom

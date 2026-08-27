@@ -49,6 +49,30 @@ export class Board {
         this.squares = this.initializeBoard();
     }
 
+    clone(): Board {
+        const prototypeByName: Record<string, object> = {
+            R: Rook.prototype,
+            N: Knight.prototype,
+            B: Bishop.prototype,
+            Q: Queen.prototype,
+            K: King.prototype,
+            "": Pawn.prototype,
+        };
+        const copy = structuredClone(this) as Board;
+        Object.setPrototypeOf(copy, Board.prototype);
+
+        for (const piece of [
+            ...copy.whitePieces,
+            ...copy.blackPieces,
+            ...copy.whitePawns,
+            ...copy.blackPawns,
+        ]) {
+            Object.setPrototypeOf(piece, prototypeByName[piece.name]);
+        }
+
+        return copy;
+    }
+
     initializeBoard() {
         const board = [];
         for (let row = 0; row < 8; row++) {
