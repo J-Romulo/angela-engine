@@ -1,6 +1,11 @@
 import { Board } from "../core/board/Board";
 import promptSync from "prompt-sync";
 import { MovementController } from "../core/MovementController";
+import { SearchController } from "../core/SearchController";
+import { Position } from "../core/pieces/Piece";
+
+const squareName = (position: Position) =>
+    `${"abcdefgh"[position.column]}${position.row + 1}`;
 
 // TODO Draw by repetition, 50 moves without pawn movement or capture, insufficient material
 export class GameController {
@@ -71,14 +76,23 @@ export class GameController {
         console.log("                    PLAY VS COMPUTER");
         console.log("=".repeat(50));
         console.log();
-        console.log("Note: Computer AI not implemented yet.");
-        console.log("You'll be playing as both sides for now.");
+        console.log("The computer searches one move ahead and plays the move");
+        console.log("with the best material evaluation.");
         console.log();
 
-        const confirm = this.prompt("Continue anyway? (y/n): ");
+        const colorChoice = this.prompt("Play as (w)hite or (b)lack? [w]: ");
+        const playerColor =
+            colorChoice.trim().toLowerCase() === "b" ? "black" : "white";
+        const computerColor = playerColor === "white" ? "black" : "white";
+
+        console.log();
+        console.log(`You are ${playerColor}. Computer is ${computerColor}.`);
+        console.log();
+
+        const confirm = this.prompt("Start game? (y/n): ");
         if (confirm.toLowerCase() === "y") {
             this.newGame();
-            this.gameLoop();
+            this.gameLoop(computerColor);
         }
     }
 
@@ -99,10 +113,18 @@ export class GameController {
         }
     }
 
-    gameLoop() {
+    gameLoop(computerColor?: "white" | "black") {
         let matchFinished = false;
         while (!matchFinished) {
             this.printBoard();
+
+            if (this.board.turn === computerColor) {
+                matchFinished = this.playComputerMove(computerColor);
+                if (matchFinished) {
+                    this.printBoard();
+                }
+                continue;
+            }
 
             const whiteMove = this.prompt(`${this.board.turn} to move: `);
 
@@ -116,6 +138,36 @@ export class GameController {
                 console.error(error.message);
             }
         }
+    }
+
+    /** Runs the search for the computer's side and plays its choice. */
+    playComputerMove(computerColor: "white" | "black"): boolean {
+        console.log(`\n${computerColor} (computer) is thinking...`);
+
+        const startedAt = Date.now();
+        const { piece, move, evaluation } = SearchController.search(
+            this.board,
+            computerColor,
+        );
+        const elapsed = Date.now() - startedAt;
+
+        if (!piece || !move) {
+            console.log(`${computerColor} has no legal moves. Game over.`);
+            return true;
+        }
+
+        const from = squareName(piece.position);
+        const to = squareName(move);
+        const label = `${piece.name}${from}-${to}`;
+
+        this.moveController.applyMovement(piece, move);
+
+        console.log(
+            `Computer plays ${label} (${move.type}, eval ${evaluation.toFixed(2)}, ${elapsed}ms)`,
+        );
+        this.prompt("Press Enter to continue...");
+
+        return this.moveController.reportGameEnd(move);
     }
 
     newGame() {
