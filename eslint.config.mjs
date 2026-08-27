@@ -19,6 +19,7 @@ export default defineConfig([
                     singleQuote: false,
                     tabWidth: 4,
                     trailingComma: "all",
+                    endOfLine: "auto",
                 },
             ],
         },
