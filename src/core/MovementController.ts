@@ -32,24 +32,31 @@ export const notationToPiece: {
     N: Knight,
 };
 
+/** Reads the promoted piece out of notation like "e8=Q+", defaulting to queen. */
+function getPromotionSymbol(move: string): string {
+    return move.match(/=([QRBN])/)?.[1] ?? "Q";
+}
+
 export class MovementController {
     constructor(private board: Board) {
         this.board = board;
     }
 
-    executeMovement(move: string) {
+    executeMovement(move: string): boolean {
         if (!NotationValidator.isValidMove(move)) {
             throw new Error("Invalid move format.");
         }
 
         const moveType = NotationValidator.getMoveType(move);
+
+        if (moveType.includes("castling")) {
+            return this.castlingMovement(moveType);
+        }
+
         const { pieceSymbol, ...ambiguation } =
             NotationValidator.getPieceSymbol(move, moveType);
         const [column, row] =
             NotationValidator.getDestinationSquare(move)?.split("") ?? [];
-
-        if (moveType.includes("castling"))
-            return this.castlingMovement(moveType);
 
         const validPieces = this.getValidPieces(pieceSymbol || "");
         const { validMove, validPiece } = this.getValidMovement(
@@ -63,46 +70,48 @@ export class MovementController {
             throw new Error("Invalid move for the selected piece.");
         }
 
-        const newSquare = this.board.getSquare({
-            row: parseInt(row) - 1,
-            column: notationToColumn[column],
-        });
+        this.applyMovement(validPiece, validMove, getPromotionSymbol(move));
 
-        if (newSquare.empty && (validMove as Movement).type === "en_passant") {
-            this.enPassantCapture(notationToColumn[column], parseInt(row) - 1);
+        return this.reportGameEnd(validMove);
+    }
+
+    applyMovement(piece: Piece, movement: Movement, promotionSymbol = "Q") {
+        if (movement.type.includes("castling")) {
+            this.castlingMovement(movement.type);
+            return;
         }
 
-        if (validPiece) {
-            if (moveType.includes("promotion")) {
-                const PromotionPieceClass =
-                    notationToPiece[move[move.length - 1]];
+        const to = { row: movement.row, column: movement.column };
+        let movingPiece = piece;
 
-                const promotedPiece = new PromotionPieceClass(
-                    (validPiece as Piece).color,
-                    1,
-                    (validPiece as Piece).position,
-                );
-                promotedPiece.movementsMade = (
-                    validPiece as Piece
-                ).movementsMade;
-                promotedPiece.lastPosition = (validPiece as Piece).lastPosition;
-
-                this.board.replacePiece(validPiece, promotedPiece);
-                this.movePieceInTheBoard(promotedPiece, {
-                    row: parseInt(row) - 1,
-                    column: notationToColumn[column],
-                });
-            } else {
-                this.movePieceInTheBoard(validPiece, {
-                    row: parseInt(row) - 1,
-                    column: notationToColumn[column],
-                });
-            }
+        if (movement.type === "en_passant" && this.board.getSquare(to).empty) {
+            this.enPassantCapture(to.column, to.row);
         }
+
+        if (movement.type.includes("promotion")) {
+            const PromotionPieceClass =
+                notationToPiece[promotionSymbol] ?? Queen;
+
+            const promotedPiece = new PromotionPieceClass(
+                piece.color,
+                1,
+                piece.position,
+            );
+            promotedPiece.movementsMade = piece.movementsMade;
+            promotedPiece.lastPosition = piece.lastPosition;
+
+            this.board.replacePiece(piece, promotedPiece);
+            movingPiece = promotedPiece;
+        }
+
+        this.movePieceInTheBoard(movingPiece, to);
 
         this.board.setTurn(this.board.turn === "white" ? "black" : "white");
         this.board.setRound(this.board.round + 1);
-        if ((validMove as Movement).check) {
+    }
+
+    reportGameEnd(movement: Movement): boolean {
+        if (movement.check) {
             this.board.check = true;
             if (this.verifyNoValidMoves()) {
                 console.log(
@@ -139,8 +148,8 @@ export class MovementController {
             ambiguousColumn?: string | null;
             ambiguousRow?: string | null;
         },
-    ) {
-        let validMove = null;
+    ): { validMove: Movement | null; validPiece: Piece | null } {
+        let validMove: Movement | null = null;
         let validPiece: Piece | null = null;
 
         // Loop inside loop, WARNING
