@@ -111,6 +111,33 @@ export class Board {
     }
 
     savePosition(): { string: string; valuation: number; repeated: number } {
+        const hashString = this.getPositionString();
+
+        if (this.positions.has(hashString)) {
+            const positionData = this.positions.get(hashString)!;
+            positionData.repeated += 1;
+            this.positions.set(hashString, positionData);
+
+            return {
+                string: hashString,
+                valuation: positionData.valuation,
+                repeated: positionData.repeated,
+            };
+        } else {
+            this.positions.set(hashString, {
+                valuation: 0,
+                repeated: 1,
+            });
+
+            return {
+                string: hashString,
+                valuation: 0,
+                repeated: 1,
+            };
+        }
+    }
+
+    getPositionString(): string {
         let hashString = this.turn;
 
         const whitePieces = [
@@ -138,28 +165,7 @@ export class Board {
             }
         }
 
-        if (this.positions.has(hashString)) {
-            const positionData = this.positions.get(hashString)!;
-            positionData.repeated += 1;
-            this.positions.set(hashString, positionData);
-
-            return {
-                string: hashString,
-                valuation: positionData.valuation,
-                repeated: positionData.repeated,
-            };
-        } else {
-            this.positions.set(hashString, {
-                valuation: 0,
-                repeated: 1,
-            });
-
-            return {
-                string: hashString,
-                valuation: 0,
-                repeated: 1,
-            };
-        }
+        return hashString;
     }
 
     getSquare(position: Position) {
