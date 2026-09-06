@@ -1,10 +1,17 @@
 import { Board } from "./board/Board";
 import { EvaluationController } from "./EvaluationController";
 import { MovementController } from "./MovementController";
-import { Movement, Piece } from "./pieces/Piece";
+import { Movement, Piece, Position } from "./pieces/Piece";
 
-const MAX_DEPTH = 3;
+const MAX_DEPTH = 5;
 const MATE = 1_000_000;
+const TT_MOVE_SCORE = 1000;
+
+type TTEntry = {
+    depth: number;
+    from: Position;
+    move: Movement;
+};
 
 type ScoredMove = {
     piece: Piece;
@@ -17,21 +24,34 @@ type SearchResult = {
     evaluation: number;
 };
 
-const MOVE_TYPE_SCORE: Record<Movement["type"], number> = {
-    promotion_capture: 60,
-    promotion: 50,
-    capture: 40,
-    en_passant: 35,
-    king_castling: 20,
-    queen_castling: 20,
-    move: 0,
-    file_disambiguation: 0,
-    rank_disambiguation: 0,
-    full_disambiguation: 0,
-};
+const CAPTURE_BASE = 100;
+const PROMOTION_BONUS = 90;
+const CASTLING_BONUS = 20;
+const CHECK_BONUS = 25;
+
 export class SearchController {
     static search(board: Board, turn: "white" | "black") {
-        return this.searchBestMove(board, turn);
+        let bestMove = {
+            piece: null,
+            move: null,
+            evaluation: -Infinity,
+        } as SearchResult;
+
+        const transpositionTable = new Map<string, TTEntry>();
+        const rootKey = board.getPositionString();
+
+        for (let i = 1; i <= MAX_DEPTH; i++) {
+            bestMove = this.searchBestMove(
+                board,
+                turn,
+                -Infinity,
+                +Infinity,
+                i,
+                transpositionTable,
+                rootKey,
+            );
+        }
+        return bestMove;
     }
 
     static searchBestMove(
@@ -40,6 +60,8 @@ export class SearchController {
         alpha = -Infinity,
         beta = +Infinity,
         depth = MAX_DEPTH,
+        transpositionTable: Map<string, TTEntry> = new Map(),
+        rootKey: string = board.getPositionString(),
     ): SearchResult {
         const opponent = turn === "white" ? "black" : "white";
         const bestPieceAndMove: SearchResult = {
@@ -49,6 +71,7 @@ export class SearchController {
         };
         const currentPlayerPieces = board.getPieces(null, turn, false);
 
+        const ttEntry = transpositionTable.get(rootKey);
         const allValidMoves = this.orderMoves(
             currentPlayerPieces.flatMap((piece) =>
                 (piece.validMovements(board, false) ?? []).map((movement) => ({
@@ -56,10 +79,16 @@ export class SearchController {
                     movement,
                 })),
             ),
+            board,
+            ttEntry,
         );
 
         for (const { piece, movement } of allValidMoves) {
-            const boardCopy = this.makeNewBoard(board, piece, movement);
+            const { board: boardCopy, key: newKey } = this.makeNewBoard(
+                board,
+                piece,
+                movement,
+            );
             const movementController = new MovementController(boardCopy);
 
             const opponentIsStuck = movementController.verifyNoValidMoves();
@@ -81,6 +110,8 @@ export class SearchController {
                     -beta,
                     -alpha,
                     depth - 1,
+                    transpositionTable,
+                    newKey,
                 ).evaluation;
             }
 
@@ -99,33 +130,81 @@ export class SearchController {
             }
         }
 
+        if (
+            bestPieceAndMove.piece &&
+            bestPieceAndMove.move &&
+            (!ttEntry || depth >= ttEntry.depth)
+        ) {
+            transpositionTable.set(rootKey, {
+                move: bestPieceAndMove.move,
+                depth,
+                from: { ...bestPieceAndMove.piece.position },
+            });
+        }
+
         return bestPieceAndMove;
     }
 
-    private static orderMoves(moves: ScoredMove[]): ScoredMove[] {
-        function scoreMove(move: Movement): number {
-            let score = MOVE_TYPE_SCORE[move.type] ?? 0;
-            if (move.check) score += 25;
+    private static orderMoves(
+        moves: ScoredMove[],
+        board: Board,
+        ttEntry?: TTEntry,
+    ): ScoredMove[] {
+        function isTtMove(move: ScoredMove): boolean {
+            if (!ttEntry) return false;
+            return (
+                move.piece.position.column === ttEntry.from.column &&
+                move.piece.position.row === ttEntry.from.row &&
+                move.movement.column === ttEntry.move.column &&
+                move.movement.row === ttEntry.move.row &&
+                move.movement.type === ttEntry.move.type
+            );
+        }
+
+        function scoreMove(move: ScoredMove): number {
+            if (isTtMove(move)) return TT_MOVE_SCORE;
+
+            let score = 0;
+
+            const victim =
+                move.movement.type === "en_passant"
+                    ? 1
+                    : (board.getSquare({
+                          row: move.movement.row,
+                          column: move.movement.column,
+                      }).piece?.value ?? 0);
+
+            if (victim > 0) {
+                const attacker = move.piece.value || 10;
+                score += CAPTURE_BASE + victim * 10 - attacker;
+            }
+
+            if (move.movement.type.includes("promotion")) {
+                score += PROMOTION_BONUS;
+            }
+            if (move.movement.type.includes("castling")) {
+                score += CASTLING_BONUS;
+            }
+            if (move.movement.check) score += CHECK_BONUS;
+
             return score;
         }
 
-        return [...moves].sort(
-            (a, b) => scoreMove(b.movement) - scoreMove(a.movement),
-        );
+        return [...moves].sort((a, b) => scoreMove(b) - scoreMove(a));
     }
 
     private static makeNewBoard(
         board: Board,
         piece: Piece,
         movement: Movement,
-    ): Board {
+    ): { board: Board; key: string } {
         const boardCopy = board.clone();
         const pieceCopy = boardCopy.getSquare(piece.position).piece;
 
         const movementController = new MovementController(boardCopy);
-        movementController.applyMovement(pieceCopy!, movement);
+        const position = movementController.applyMovement(pieceCopy!, movement);
 
-        return boardCopy;
+        return { board: boardCopy, key: position.string };
     }
 
     private static countMoves(board: Board, color: "white" | "black"): number {
