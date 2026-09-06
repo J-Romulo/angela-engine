@@ -3,95 +3,102 @@ import { EvaluationController } from "./EvaluationController";
 import { MovementController } from "./MovementController";
 import { Movement, Piece } from "./pieces/Piece";
 
+const MAX_DEPTH = 3;
+const MATE = 1_000_000;
+
+type SearchResult = {
+    piece: Piece | null;
+    move: Movement | null;
+    evaluation: number;
+};
 export class SearchController {
     static search(board: Board, turn: "white" | "black") {
-        const currentPlayerPieces = board.getPieces(null, turn, false);
+        return this.searchBestMove(board, turn);
+    }
 
-        const bestPieceAndMove: {
-            piece: Piece | null;
-            move: Movement | null;
-            evaluation: number;
-        } = {
+    static searchBestMove(
+        board: Board,
+        turn: "white" | "black",
+        alpha = -Infinity,
+        beta = +Infinity,
+        depth = MAX_DEPTH,
+    ): SearchResult {
+        const opponent = turn === "white" ? "black" : "white";
+        const bestPieceAndMove: SearchResult = {
             piece: null,
             move: null,
             evaluation: -Infinity,
         };
+        const currentPlayerPieces = board.getPieces(null, turn, false);
 
-        for (const piece of currentPlayerPieces) {
+        movesLoop: for (const piece of currentPlayerPieces) {
             const validMovements = piece.validMovements(board, false);
-
-            let biggerEvaluation = -Infinity;
-            let bestMove: Movement | null = null;
             for (const movement of validMovements || []) {
-                const boardCopy = board.clone();
-                const pieceCopy = boardCopy.getSquare(piece.position).piece;
-
+                const boardCopy = this.makeNewBoard(board, piece, movement);
                 const movementController = new MovementController(boardCopy);
-                movementController.applyMovement(pieceCopy!, movement);
 
-                let opponentValidMoves = 0;
-                const opponentPieces = boardCopy.getPieces(
-                    null,
-                    turn === "white" ? "black" : "white",
-                    false,
-                );
-                for (const piece of opponentPieces) {
-                    const validMovements = piece.validMovements(
+                const opponentIsStuck = movementController.verifyNoValidMoves();
+
+                let evaluation: number;
+                if (opponentIsStuck) {
+                    evaluation = movement.check ? MATE + depth : 0;
+                } else if (depth <= 1) {
+                    evaluation = EvaluationController.evaluatePosition(
                         boardCopy,
-                        false,
+                        turn,
+                        this.countMoves(boardCopy, turn),
+                        this.countMoves(boardCopy, opponent),
                     );
-                    opponentValidMoves += validMovements
-                        ? validMovements.length
-                        : 0;
-                }
-
-                let currentPlayerValidMoves = 0;
-                for (const piece of currentPlayerPieces) {
-                    const validMovements = piece.validMovements(
+                } else {
+                    evaluation = -this.searchBestMove(
                         boardCopy,
-                        false,
-                    );
-                    currentPlayerValidMoves += validMovements
-                        ? validMovements.length
-                        : 0;
+                        opponent,
+                        -beta,
+                        -alpha,
+                        depth - 1,
+                    ).evaluation;
                 }
 
-                const opponentHasNoMoves =
-                    movementController.verifyNoValidMoves();
+                if (evaluation > bestPieceAndMove.evaluation) {
+                    bestPieceAndMove.evaluation = evaluation;
+                    bestPieceAndMove.move = movement;
+                    bestPieceAndMove.piece = piece;
 
-                // No reply and we are giving check: mate, nothing scores higher.
-                if (opponentHasNoMoves && movement.check) {
-                    return {
-                        piece,
-                        move: movement,
-                        evaluation: Infinity,
-                    };
+                    if (evaluation > alpha) {
+                        alpha = evaluation;
+                    }
                 }
 
-                // No reply and no check: stalemate. Score it as a draw and let
-                // it compete, rather than returning it as the answer.
-                const evaluation = opponentHasNoMoves
-                    ? 0
-                    : EvaluationController.evaluatePosition(
-                          boardCopy,
-                          turn,
-                          currentPlayerValidMoves,
-                          opponentValidMoves,
-                      );
-
-                if (evaluation > biggerEvaluation) {
-                    biggerEvaluation = evaluation;
-                    bestMove = movement;
+                if (evaluation >= beta) {
+                    break movesLoop;
                 }
-            }
-
-            if (biggerEvaluation > bestPieceAndMove.evaluation) {
-                bestPieceAndMove.piece = piece;
-                bestPieceAndMove.move = bestMove;
-                bestPieceAndMove.evaluation = biggerEvaluation;
             }
         }
 
         return bestPieceAndMove;
+    }
+
+    private static makeNewBoard(
+        board: Board,
+        piece: Piece,
+        movement: Movement,
+    ): Board {
+        const boardCopy = board.clone();
+        const pieceCopy = boardCopy.getSquare(piece.position).piece;
+
+        const movementController = new MovementController(boardCopy);
+        movementController.applyMovement(pieceCopy!, movement);
+
+        return boardCopy;
+    }
+
+    private static countMoves(board: Board, color: "white" | "black"): number {
+        return board
+            .getPieces(null, color, false)
+            .reduce(
+                (total, p) =>
+                    total + (p.validMovements(board, false)?.length ?? 0),
+                0,
+            );
     }
 }
