@@ -24,6 +24,8 @@ export class Board {
     whitePawns: Piece[] = [];
     blackPawns: Piece[] = [];
 
+    positions: Map<string, { valuation: number; repeated: number }> = new Map();
+
     constructor() {
         this.whitePieces = [
             new Rook("white", 1),
@@ -106,6 +108,58 @@ export class Board {
         }
 
         return board;
+    }
+
+    savePosition(): { string: string; valuation: number; repeated: number } {
+        let hashString = this.turn;
+
+        const whitePieces = [
+            ...this.whitePieces.filter((piece) => !piece.captured),
+            ...this.whitePawns.filter((piece) => !piece.captured),
+        ];
+        const blackPieces = [
+            ...this.blackPieces.filter((piece) => !piece.captured),
+            ...this.blackPawns.filter((piece) => !piece.captured),
+        ];
+
+        for (const piece of [...whitePieces, ...blackPieces]) {
+            hashString += `${piece.name}${piece.color}${piece.position.row}${piece.position.column}`;
+
+            if (!(piece instanceof Rook) && !(piece instanceof Pawn)) continue;
+
+            for (const movement of piece.validMovements(this) || []) {
+                if (
+                    movement.type === "king_castling" ||
+                    movement.type === "queen_castling" ||
+                    movement.type === "en_passant"
+                ) {
+                    hashString += `${movement.type}${movement.row}${movement.column}`;
+                }
+            }
+        }
+
+        if (this.positions.has(hashString)) {
+            const positionData = this.positions.get(hashString)!;
+            positionData.repeated += 1;
+            this.positions.set(hashString, positionData);
+
+            return {
+                string: hashString,
+                valuation: positionData.valuation,
+                repeated: positionData.repeated,
+            };
+        } else {
+            this.positions.set(hashString, {
+                valuation: 0,
+                repeated: 1,
+            });
+
+            return {
+                string: hashString,
+                valuation: 0,
+                repeated: 1,
+            };
+        }
     }
 
     getSquare(position: Position) {

@@ -7,7 +7,8 @@ import { Position } from "../core/pieces/Piece";
 const squareName = (position: Position) =>
     `${"abcdefgh"[position.column]}${position.row + 1}`;
 
-// TODO Draw by repetition, 50 moves without pawn movement or capture, insufficient material
+// 50 moves without pawn movement or capture
+// insufficient material
 export class GameController {
     prompt: promptSync.Prompt;
     board: Board;
@@ -138,6 +139,8 @@ export class GameController {
                 console.error(error.message);
             }
         }
+
+        this.prompt("\nPress Enter to return to the menu...");
     }
 
     /** Runs the search for the computer's side and plays its choice. */
@@ -160,14 +163,14 @@ export class GameController {
         const to = squareName(move);
         const label = `${piece.name}${from}-${to}`;
 
-        this.moveController.applyMovement(piece, move);
+        const nextPosition = this.moveController.applyMovement(piece, move);
 
         console.log(
             `Computer plays ${label} (${move.type}, eval ${evaluation.toFixed(2)}, ${elapsed}ms)`,
         );
         this.prompt("Press Enter to continue...");
 
-        return this.moveController.reportGameEnd(move);
+        return this.moveController.reportGameEnd(move, nextPosition);
     }
 
     newGame() {

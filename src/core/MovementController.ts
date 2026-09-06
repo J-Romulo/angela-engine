@@ -32,7 +32,6 @@ export const notationToPiece: {
     N: Knight,
 };
 
-/** Reads the promoted piece out of notation like "e8=Q+", defaulting to queen. */
 function getPromotionSymbol(move: string): string {
     return move.match(/=([QRBN])/)?.[1] ?? "Q";
 }
@@ -50,7 +49,8 @@ export class MovementController {
         const moveType = NotationValidator.getMoveType(move);
 
         if (moveType.includes("castling")) {
-            return this.castlingMovement(moveType);
+            const { movement, position } = this.castlingMovement(moveType);
+            return this.reportGameEnd(movement, position);
         }
 
         const { pieceSymbol, ...ambiguation } =
@@ -70,15 +70,18 @@ export class MovementController {
             throw new Error("Invalid move for the selected piece.");
         }
 
-        this.applyMovement(validPiece, validMove, getPromotionSymbol(move));
+        const nextPosition = this.applyMovement(
+            validPiece,
+            validMove,
+            getPromotionSymbol(move),
+        );
 
-        return this.reportGameEnd(validMove);
+        return this.reportGameEnd(validMove, nextPosition);
     }
 
     applyMovement(piece: Piece, movement: Movement, promotionSymbol = "Q") {
         if (movement.type.includes("castling")) {
-            this.castlingMovement(movement.type);
-            return;
+            return this.castlingMovement(movement.type).position;
         }
 
         const to = { row: movement.row, column: movement.column };
@@ -108,9 +111,14 @@ export class MovementController {
 
         this.board.setTurn(this.board.turn === "white" ? "black" : "white");
         this.board.setRound(this.board.round + 1);
+
+        return this.board.savePosition();
     }
 
-    reportGameEnd(movement: Movement): boolean {
+    reportGameEnd(
+        movement: Movement,
+        nextPosition: { string: string; valuation: number; repeated: number },
+    ): boolean {
         if (movement.check) {
             this.board.check = true;
             if (this.verifyNoValidMoves()) {
@@ -127,6 +135,11 @@ export class MovementController {
                 return true;
             }
             this.board.check = false;
+        }
+
+        if (nextPosition.repeated >= 3) {
+            console.log("Draw by threefold repetition! Game over.");
+            return true;
         }
 
         return false;
@@ -231,9 +244,11 @@ export class MovementController {
             throw new Error("Invalid castling move.");
         }
 
+        const kingMovement = kingMovements[0];
+
         this.movePieceInTheBoard(king, {
-            row: kingMovements[0].row,
-            column: kingMovements[0].column,
+            row: kingMovement.row,
+            column: kingMovement.column,
         });
         this.movePieceInTheBoard(rook, {
             row: rookMovements[0].row,
@@ -243,7 +258,7 @@ export class MovementController {
         this.board.setTurn(this.board.turn === "white" ? "black" : "white");
         this.board.setRound(this.board.round + 1);
 
-        return false;
+        return { movement: kingMovement, position: this.board.savePosition() };
     }
 
     enPassantCapture(column: number, row: number) {
