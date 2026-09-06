@@ -129,6 +129,10 @@ export class Rook extends Piece {
             }
         }
 
+        // O roque nao ataca casa nenhuma, entao nao entra em varredura de
+        // ataque - e gera-lo ali recursaria pelas casas atacadas.
+        if (checkKingInCheck) return validMovements;
+
         //King castling
         if (this.movementsMade === 0) {
             const castlingSquares = [
@@ -149,20 +153,33 @@ export class Rook extends Piece {
                 }
             }
 
-            if (castlingPossible) {
+            const kingColumn = currentColumn - 3;
+            if (castlingPossible && kingColumn >= 0) {
                 const kingSquare = board.getSquare({
-                    column: currentColumn - 3,
+                    column: kingColumn,
                     row: currentRow,
                 });
                 if (
                     !kingSquare.empty &&
                     kingSquare.piece!.color === this.color &&
-                    kingSquare.piece!.movementsMade === 0
+                    kingSquare.piece!.movementsMade === 0 &&
+                    kingSquare.piece instanceof King &&
+                    !kingSquare.piece.pathIsAttacked(board, [
+                        kingColumn,
+                        kingColumn + 1,
+                        kingColumn + 2,
+                    ])
                 ) {
                     validMovements.push({
                         column: currentColumn - 2,
                         row: currentRow,
                         type: "king_castling" as Movement["type"],
+                        check: this.searchForCheck(
+                            board,
+                            this.movementDirections,
+                            { row: currentRow, column: currentColumn - 2 },
+                            true,
+                        ),
                     });
                 }
             }
@@ -189,20 +206,33 @@ export class Rook extends Piece {
                 }
             }
 
-            if (castlingPossible) {
+            const kingColumn = currentColumn + 4;
+            if (castlingPossible && kingColumn <= 7) {
                 const kingSquare = board.getSquare({
-                    column: currentColumn + 4,
+                    column: kingColumn,
                     row: currentRow,
                 });
                 if (
                     !kingSquare.empty &&
                     kingSquare.piece!.color === this.color &&
-                    kingSquare.piece!.movementsMade === 0
+                    kingSquare.piece!.movementsMade === 0 &&
+                    kingSquare.piece instanceof King &&
+                    !kingSquare.piece.pathIsAttacked(board, [
+                        kingColumn,
+                        kingColumn - 1,
+                        kingColumn - 2,
+                    ])
                 ) {
                     validMovements.push({
                         column: currentColumn + 3,
                         row: currentRow,
                         type: "queen_castling" as Movement["type"],
+                        check: this.searchForCheck(
+                            board,
+                            this.movementDirections,
+                            { row: currentRow, column: currentColumn + 3 },
+                            true,
+                        ),
                     });
                 }
             }
