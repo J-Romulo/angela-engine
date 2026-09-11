@@ -185,14 +185,23 @@ export class Pawn extends Piece {
         // Captured pawn has to be next to the capturing pawn
         // Captured pawn has have moved 2 rows in last turn
         // Capture has to be made immediately after the pawn has moved 2 rows
-        if (this.movementsMade === 3) {
+        // Linha 5 para as brancas (indice 4), linha 4 para as pretas (indice 3).
+        // Nao dá para usar `movementsMade`: ele soma |dLinha| + |dColuna|, entao
+        // um peao que capturou pelo caminho chega aqui com valor maior e perdia
+        // o en passant.
+        // A coluna nula descarta o bloco inteiro sem tocar no tabuleiro, e e o
+        // caso na esmagadora maioria dos lances.
+        if (
+            board.enPassantColumn !== null &&
+            currentRow === (direction === 1 ? 4 : 3)
+        ) {
             const sideSquares = [
                 { column: currentColumn + 1, row: currentRow },
                 { column: currentColumn - 1, row: currentRow },
             ];
 
             for (const move of sideSquares) {
-                if (move.column > 7 || move.column < 0) break;
+                if (move.column > 7 || move.column < 0) continue;
                 const targetSquare = board.getSquare(move);
                 if (
                     !targetSquare.empty &&
@@ -206,21 +215,18 @@ export class Pawn extends Piece {
                               column: move.column,
                           });
 
-                    if (
-                        targetSquare.piece.lastPosition &&
-                        targetSquare.piece.movementsMade === 2 &&
-                        Math.abs(
-                            targetSquare.piece.position.row -
-                                targetSquare.piece.lastPosition.row,
-                        ) === 2 &&
-                        targetSquare.piece.lastPosition.round ===
-                            board.round - 1
-                    ) {
+                    if (board.enPassantColumn === move.column) {
                         if (!checkKingInCheck) {
                             const king = board.getPieces(
                                 "K",
                                 this.color,
                             )[0] as King;
+
+                            const capturedPawn = targetSquare.piece!;
+                            targetSquare.piece = null;
+                            targetSquare.empty = true;
+                            capturedPawn.captured = true;
+
                             const putsOwnKingInCheck =
                                 king.checkIfMovePutsKingInCheck(
                                     board,
@@ -230,6 +236,10 @@ export class Pawn extends Piece {
                                     },
                                     this,
                                 );
+
+                            capturedPawn.captured = false;
+                            targetSquare.piece = capturedPawn;
+                            targetSquare.empty = false;
 
                             if (!putsOwnKingInCheck) {
                                 validMovements.push({
@@ -255,6 +265,28 @@ export class Pawn extends Piece {
             }
         }
 
-        return validMovements;
+        return expandPromotions(validMovements);
     }
+}
+
+const PROMOTION_PIECES = ["Q", "R", "B", "N"] as const;
+
+function expandPromotions(movements: Movement[]): Movement[] {
+    let hasPromotion = false;
+    for (const movement of movements) {
+        if (
+            movement.type === "promotion" ||
+            movement.type === "promotion_capture"
+        ) {
+            hasPromotion = true;
+            break;
+        }
+    }
+    if (!hasPromotion) return movements;
+
+    return movements.flatMap((movement) =>
+        movement.type === "promotion" || movement.type === "promotion_capture"
+            ? PROMOTION_PIECES.map((promotion) => ({ ...movement, promotion }))
+            : movement,
+    );
 }

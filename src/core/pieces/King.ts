@@ -84,8 +84,13 @@ export class King extends Piece {
         // ataque - e gera-lo ali recursaria pelas casas atacadas.
         if (checkKingInCheck) return validMovements;
 
+        // Direito lido do estado do tabuleiro, nao deduzido de movementsMade.
         //King castling
-        if (this.movementsMade === 0) {
+        if (
+            this.color === "white"
+                ? board.castlingRights.whiteKing
+                : board.castlingRights.blackKing
+        ) {
             const castlingSquares = [
                 { column: currentColumn + 1, row: currentRow },
                 { column: currentColumn + 2, row: currentRow },
@@ -122,8 +127,7 @@ export class King extends Piece {
                 });
                 if (
                     !rookSquare.empty &&
-                    rookSquare.piece!.color === this.color &&
-                    rookSquare.piece!.movementsMade === 0
+                    rookSquare.piece!.color === this.color
                 ) {
                     validMovements.push({
                         column: currentColumn + 2,
@@ -141,7 +145,11 @@ export class King extends Piece {
         }
 
         //Queen castling
-        if (this.movementsMade === 0) {
+        if (
+            this.color === "white"
+                ? board.castlingRights.whiteQueen
+                : board.castlingRights.blackQueen
+        ) {
             const castlingSquares = [
                 { column: currentColumn - 1, row: currentRow },
                 { column: currentColumn - 2, row: currentRow },
@@ -179,8 +187,7 @@ export class King extends Piece {
                 });
                 if (
                     !rookSquare.empty &&
-                    rookSquare.piece!.color === this.color &&
-                    rookSquare.piece!.movementsMade === 0
+                    rookSquare.piece!.color === this.color
                 ) {
                     validMovements.push({
                         column: currentColumn - 2,

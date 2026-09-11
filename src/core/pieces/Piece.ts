@@ -24,6 +24,7 @@ export type Movement = Position & {
         | "promotion_capture";
 
     check?: boolean;
+    promotion?: "Q" | "R" | "B" | "N";
 };
 export abstract class Piece {
     color: "black" | "white";
