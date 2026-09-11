@@ -2,6 +2,7 @@ import { Board } from "../core/board/Board";
 import promptSync from "prompt-sync";
 import { MovementController } from "../core/MovementController";
 import { SearchController } from "../core/SearchController";
+import { OpeningBook } from "../core/OpeningBook";
 import { Position } from "../core/pieces/Piece";
 
 const squareName = (position: Position) =>
@@ -143,8 +144,21 @@ export class GameController {
         this.prompt("\nPress Enter to return to the menu...");
     }
 
-    /** Runs the search for the computer's side and plays its choice. */
     playComputerMove(computerColor: "white" | "black"): boolean {
+        const bookMove = OpeningBook.pick(this.board);
+        if (bookMove) {
+            try {
+                console.log(
+                    `\n${computerColor} plays ${bookMove} (opening book)`,
+                );
+                this.prompt("Press Enter to continue...");
+                return this.moveController.executeMovement(bookMove);
+            } catch {
+                // Lance de livro invalido nesta posicao: cai na busca. Nada foi
+                // aplicado ainda, entao o tabuleiro segue intacto.
+            }
+        }
+
         console.log(`\n${computerColor} (computer) is thinking...`);
 
         const startedAt = Date.now();
