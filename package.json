@@ -5,7 +5,9 @@
   "scripts": {
     "start": "ts-node ./src/index.ts",
     "lint": "eslint . --ext .ts",
-    "lint:fix": "eslint . --ext .ts --fix"
+    "lint:fix": "eslint . --ext .ts --fix",
+    "perft": "ts-node ./scripts/perftTest.ts",
+    "zobrist": "ts-node ./scripts/zobristTest.ts"
   },
   "keywords": [],
   "author": "",
