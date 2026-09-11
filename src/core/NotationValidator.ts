@@ -112,96 +112,31 @@ export class NotationValidator {
         return match ? match[0] : null;
     }
 
-    static getPieceSymbol(
-        notation: string,
-        moveType: Movement["type"],
-    ): {
+    static readonly SAN_MOVE =
+        /^([KQRBN])?([a-h])?([1-8])?x?([a-h][1-8])(?:=[QRBN])?[\+#]?(?:\s*e\.p\.)?$/;
+
+    static getPieceSymbol(notation: string): {
         pieceSymbol: string | null;
         ambiguousColumn?: string | null;
         ambiguousRow?: string | null;
     } {
-        if (moveType.includes("ambiguation")) {
-            return this.getPieceSymbolWithAmbiguition(notation, moveType);
-        }
+        const match = notation.trim().match(this.SAN_MOVE);
 
-        if (moveType.includes("promotion")) {
-            return this.getPieceSymbolWithAmbiguition(notation, moveType);
-        }
-
-        const pawnMovement = this.SQUARE.test(notation);
-
-        if (pawnMovement)
+        if (!match) {
             return {
-                pieceSymbol: "",
-            };
-
-        const match = notation.match(this.PIECE);
-
-        return {
-            pieceSymbol: match ? match[0].toUpperCase() : null,
-        };
-    }
-
-    static getPieceSymbolWithAmbiguition(
-        notation: string,
-        moveType: Movement["type"],
-    ): {
-        pieceSymbol: string | null;
-        ambiguousColumn?: string | null;
-        ambiguousRow?: string | null;
-    } {
-        if (moveType === "file_disambiguation") {
-            //Nbd2
-            const ambiguationColumn = notation[notation.length - 2 - 1];
-
-            const match = notation.match(this.PIECE);
-            return {
-                pieceSymbol:
-                    notation.length === 3
-                        ? ""
-                        : match
-                          ? match[0].toUpperCase()
-                          : null,
-                ambiguousColumn: ambiguationColumn || null,
+                pieceSymbol: null,
+                ambiguousColumn: null,
                 ambiguousRow: null,
             };
         }
-        if (moveType === "rank_disambiguation") {
-            const ambiguationRow = notation[notation.length - 2 - 1];
 
-            const match = notation.match(this.PIECE);
-            return {
-                pieceSymbol:
-                    notation.length === 3
-                        ? ""
-                        : match
-                          ? match[0].toUpperCase()
-                          : null,
-                ambiguousColumn: null,
-                ambiguousRow: ambiguationRow,
-            };
-        }
-        if (moveType === "full_disambiguation") {
-            const ambiguationColumn = notation[notation.length - 3 - 1];
-            const ambiguationRow = notation[notation.length - 2 - 1];
-
-            const match = notation.match(this.PIECE);
-            return {
-                pieceSymbol:
-                    notation.length === 4
-                        ? ""
-                        : match
-                          ? match[0].toUpperCase()
-                          : null,
-                ambiguousColumn: ambiguationColumn,
-                ambiguousRow: ambiguationRow,
-            };
-        }
+        const [, piece, column, row] = match;
 
         return {
-            pieceSymbol: null,
-            ambiguousColumn: null,
-            ambiguousRow: null,
+            // Sem letra de peca, e peao - que `getValidPieces` representa por "".
+            pieceSymbol: piece ?? "",
+            ambiguousColumn: column ?? null,
+            ambiguousRow: row ?? null,
         };
     }
 }
