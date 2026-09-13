@@ -79,34 +79,6 @@ export class Board {
         this.hash = this.recomputeHash();
     }
 
-    clone(): Board {
-        const prototypeByName: Record<string, object> = {
-            R: Rook.prototype,
-            N: Knight.prototype,
-            B: Bishop.prototype,
-            Q: Queen.prototype,
-            K: King.prototype,
-            "": Pawn.prototype,
-        };
-        const cache = this.movementsCache;
-        this.movementsCache = new Map();
-        const copy = structuredClone(this) as Board;
-        this.movementsCache = cache;
-
-        Object.setPrototypeOf(copy, Board.prototype);
-
-        for (const piece of [
-            ...copy.whitePieces,
-            ...copy.blackPieces,
-            ...copy.whitePawns,
-            ...copy.blackPawns,
-        ]) {
-            Object.setPrototypeOf(piece, prototypeByName[piece.name]);
-        }
-
-        return copy;
-    }
-
     movementsOf(piece: Piece): Movement[] | undefined {
         if (this.movementsCache.has(piece)) {
             return this.movementsCache.get(piece);

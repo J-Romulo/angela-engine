@@ -66,21 +66,28 @@ function walk(board: Board, depth: number, line: string[]) {
     check(board, line);
     if (depth === 0 || driftErrors || identityErrors) return;
 
-    for (const piece of board.getPieces(null, board.turn, false)) {
-        for (const movement of board.movementsOf(piece) ?? []) {
-            const copy = board.clone();
-            const pieceCopy = copy.getSquare(piece.position).piece!;
-            try {
-                new MovementController(copy).applyMovement(pieceCopy, movement);
-            } catch {
-                continue;
-            }
-            walk(copy, depth - 1, [
-                ...line,
-                `${piece.name || "P"}${piece.position.column}${piece.position.row}-${movement.column}${movement.row}`,
-            ]);
-            if (driftErrors || identityErrors) return;
-        }
+    const controller = new MovementController(board);
+
+    // Instantaneo tirado antes de mexer no tabuleiro, como no perft: a lista
+    // nao pode ser gerada enquanto as pecas andam.
+    const moves = board.getPieces(null, board.turn, false).flatMap((piece) =>
+        (board.movementsOf(piece) ?? []).map((movement) => ({
+            piece,
+            movement,
+        })),
+    );
+
+    for (const { piece, movement } of moves) {
+        // A posicao da peca muda no lance: o rotulo tem que sair antes.
+        const label =
+            `${piece.name || "P"}${piece.position.column}${piece.position.row}` +
+            `-${movement.column}${movement.row}`;
+
+        const undo = controller.makeMovement(piece, movement);
+        walk(board, depth - 1, [...line, label]);
+        controller.unmakeMovement(undo);
+
+        if (driftErrors || identityErrors) return;
     }
 }
 
