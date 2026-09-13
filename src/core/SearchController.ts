@@ -1,6 +1,6 @@
 import { Board } from "./board/Board";
 import { EvaluationController } from "./EvaluationController";
-import { MovementController } from "./MovementController";
+import { FIFTY_MOVE_LIMIT, MovementController } from "./MovementController";
 import { Movement, Piece, Position } from "./pieces/Piece";
 
 const MAX_DEPTH = 6;
@@ -193,6 +193,14 @@ export class SearchController {
         };
 
         if (this.stopped) return bestPieceAndMove;
+
+        // Empate por 50 lances. So fora da raiz, que precisa devolver lance -
+        // e so depois do mate, ja descartado pelo no de cima, que testa
+        // `verifyNoValidMoves` antes de recursar.
+        if (ply > 0 && board.halfmoveClock >= FIFTY_MOVE_LIMIT) {
+            return { piece: null, move: null, evaluation: 0 };
+        }
+
         const currentPlayerPieces = board.getPieces(null, turn, false);
 
         const alphaOriginal = alpha;
@@ -325,6 +333,8 @@ export class SearchController {
         this.stats.quiescenceNodes++;
 
         if (this.stopped) return alpha;
+
+        if (board.halfmoveClock >= FIFTY_MOVE_LIMIT) return 0;
 
         const opponent = color === "white" ? "black" : "white";
         const inCheck = controller.isInCheck(color);

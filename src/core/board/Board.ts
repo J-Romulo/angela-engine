@@ -230,6 +230,51 @@ export class Board {
         return hashString;
     }
 
+    /**
+     * Posicao morta: nenhum dos lados consegue dar mate.
+     *
+     * R vs R, R+leve vs R, e R+B vs R+B com bispos na mesma cor de casa.
+     * R+C+C vs R fica de fora: nao ha mate forcado, mas existe mate com
+     * cooperacao, e a FIDE nao trata como posicao morta.
+     *
+     * Sai cedo: peao, torre ou dama viva ja encerra a pergunta, e as tres
+     * primeiras pecas do array sao torre, cavalo e bispo.
+     */
+    hasInsufficientMaterial(): boolean {
+        const bishops: Piece[] = [];
+        let minors = 0;
+
+        for (const piece of [
+            ...this.whitePieces,
+            ...this.blackPieces,
+            ...this.whitePawns,
+            ...this.blackPawns,
+        ]) {
+            if (piece.captured) continue;
+
+            if (piece.name === "" || piece.name === "R" || piece.name === "Q") {
+                return false;
+            }
+
+            if (piece.name === "K") continue;
+
+            minors++;
+            if (minors > 2) return false;
+            if (piece.name === "B") bishops.push(piece);
+        }
+
+        if (minors <= 1) return true;
+
+        // Dois leves: so empata se forem um bispo de cada lado, na mesma cor.
+        if (bishops.length !== 2) return false;
+        if (bishops[0].color === bishops[1].color) return false;
+
+        return (
+            this.getSquare(bishops[0].position).color ===
+            this.getSquare(bishops[1].position).color
+        );
+    }
+
     getSquare(position: Position) {
         return this.squares[position.row][position.column];
     }

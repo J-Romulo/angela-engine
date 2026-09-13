@@ -63,7 +63,15 @@ export type MoveUndo = {
     round: number;
 };
 
-export type GameStatus = "checkmate" | "stalemate" | "threefold" | "ongoing";
+export type GameStatus =
+    | "checkmate"
+    | "stalemate"
+    | "threefold"
+    | "fifty_moves"
+    | "insufficient_material"
+    | "ongoing";
+
+export const FIFTY_MOVE_LIMIT = 100;
 
 export class MovementController {
     constructor(private board: Board) {
@@ -267,6 +275,11 @@ export class MovementController {
             return this.isInCheck() ? "checkmate" : "stalemate";
         }
 
+        if (this.board.hasInsufficientMaterial())
+            return "insufficient_material";
+
+        if (this.board.halfmoveClock >= FIFTY_MOVE_LIMIT) return "fifty_moves";
+
         if (repetitions >= 3) return "threefold";
 
         return "ongoing";
@@ -287,6 +300,12 @@ export class MovementController {
                 return true;
             case "stalemate":
                 console.log("Stalemate! Game over. It's a draw.");
+                return true;
+            case "insufficient_material":
+                console.log("Draw by insufficient material! Game over.");
+                return true;
+            case "fifty_moves":
+                console.log("Draw by the fifty-move rule! Game over.");
                 return true;
             case "threefold":
                 console.log("Draw by threefold repetition! Game over.");

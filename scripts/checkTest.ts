@@ -34,7 +34,54 @@ const CASES: CheckCase[] = [
         expected: "stalemate",
     },
     {
-        name: "5. posicao normal segue em jogo",
+        // Centesimo meio-lance sem captura nem peao.
+        name: "5. regra dos 50 lances",
+        fen: "R3N1k1/5ppp/8/8/8/8/8/6K1 w - - 99 1",
+        move: "Kg2",
+        expected: "fifty_moves",
+    },
+    {
+        // Mate tem precedencia sobre o relogio.
+        name: "6. mate no centesimo meio-lance",
+        fen: "R3N1k1/5ppp/8/8/8/8/8/6K1 w - - 99 1",
+        move: "Nd6",
+        expected: "checkmate",
+    },
+    {
+        // Captura zera o relogio.
+        name: "7. captura no nonagesimo nono",
+        fen: "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 99 1",
+        move: "dxe6",
+        expected: "ongoing",
+    },
+    {
+        name: "8. material insuficiente: rei e bispo contra rei",
+        fen: "8/8/8/3k4/8/8/3r4/K1B5 w - - 0 1",
+        move: "Bxd2",
+        expected: "insufficient_material",
+    },
+    {
+        // Dois cavalos nao forcam mate, mas ha mate com cooperacao: a FIDE nao
+        // trata como posicao morta.
+        name: "9. dois cavalos nao sao material insuficiente",
+        fen: "8/8/8/3k4/8/1NN5/3r4/K7 w - - 0 1",
+        move: "Nxd2",
+        expected: "ongoing",
+    },
+    {
+        name: "10. bispos de cores diferentes seguem em jogo",
+        fen: "4b3/8/8/3k4/8/8/3r4/K1B5 w - - 0 1",
+        move: "Bxd2",
+        expected: "ongoing",
+    },
+    {
+        name: "11. bispos na mesma cor de casa empatam",
+        fen: "5b2/8/8/3k4/8/8/3r4/K1B5 w - - 0 1",
+        move: "Bxd2",
+        expected: "insufficient_material",
+    },
+    {
+        name: "12. posicao normal segue em jogo",
         fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
         move: "e4",
         expected: "ongoing",

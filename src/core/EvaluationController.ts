@@ -21,6 +21,8 @@ const TABLES: Record<string, readonly number[]> = {
 
 export class EvaluationController {
     static evaluatePosition(board: Board, turn: "white" | "black"): number {
+        if (board.hasInsufficientMaterial()) return 0;
+
         const opponent = turn === "white" ? "black" : "white";
         const endgame = isEndgame(board);
 
