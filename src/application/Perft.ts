@@ -1,5 +1,5 @@
 import { Board } from "../core/board/Board";
-import { SearchController } from "../core/SearchController";
+import { MovementController } from "../core/MovementController";
 import { Bishop } from "../core/pieces/Bishop";
 import { King } from "../core/pieces/King";
 import { Knight } from "../core/pieces/Knight";
@@ -25,15 +25,23 @@ function countNodes(board: Board, depth: number): number {
     );
 
     let nodes = 0;
+    const controller = new MovementController(board);
 
     for (const { piece, movement } of allValidMoves) {
-        const { board: boardCopy } = SearchController.makeNewBoard(
-            board,
-            piece,
-            movement,
-        );
+        const hashBefore = board.hash;
+        const undo = controller.makeMovement(piece, movement);
 
-        nodes += countNodes(boardCopy, depth - 1);
+        nodes += countNodes(board, depth - 1);
+
+        controller.unmakeMovement(undo);
+
+        if (board.hash !== hashBefore) {
+            throw new Error(
+                `unmake nao restaurou o hash apos ${piece.name || "P"}` +
+                    `${piece.position.column}${piece.position.row}` +
+                    `-${movement.column}${movement.row} (${movement.type})`,
+            );
+        }
     }
 
     return nodes;
