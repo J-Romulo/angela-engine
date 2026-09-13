@@ -2,9 +2,24 @@ import { Bishop } from "../pieces/Bishop";
 import { King } from "../pieces/King";
 import { Knight } from "../pieces/Knight";
 import { Pawn } from "../pieces/Pawn";
-import { Piece, Position } from "../pieces/Piece";
+import { Movement, Piece, Position } from "../pieces/Piece";
 import { Queen } from "../pieces/Queen";
 import { Rook } from "../pieces/Rook";
+import {
+    CASTLING,
+    CASTLING_INDEX,
+    CastlingRight,
+    EN_PASSANT,
+    PIECE_SQUARE,
+    pieceSquareIndex,
+    TURN,
+} from "../zobrist";
+
+export type PositionRecord = {
+    hash: bigint;
+    valuation: number;
+    repeated: number;
+};
 
 export type Square = {
     color: "black" | "white";
@@ -24,8 +39,20 @@ export class Board {
     whitePawns: Piece[] = [];
     blackPawns: Piece[] = [];
 
-    positions: Map<string, { valuation: number; repeated: number }> = new Map();
+    positions: Map<bigint, { valuation: number; repeated: number }> = new Map();
 
+    castlingRights: Record<CastlingRight, boolean> = {
+        whiteKing: true,
+        whiteQueen: true,
+        blackKing: true,
+        blackQueen: true,
+    };
+
+    enPassantColumn: number | null = null;
+
+    hash = 0n;
+
+    private movementsCache: Map<Piece, Movement[] | undefined> = new Map();
     constructor() {
         this.whitePieces = [
             new Rook("white", 1),
@@ -49,6 +76,7 @@ export class Board {
             new Rook("black", 2),
         ];
         this.squares = this.initializeBoard();
+        this.hash = this.recomputeHash();
     }
 
     clone(): Board {
@@ -60,7 +88,11 @@ export class Board {
             K: King.prototype,
             "": Pawn.prototype,
         };
+        const cache = this.movementsCache;
+        this.movementsCache = new Map();
         const copy = structuredClone(this) as Board;
+        this.movementsCache = cache;
+
         Object.setPrototypeOf(copy, Board.prototype);
 
         for (const piece of [
@@ -73,6 +105,61 @@ export class Board {
         }
 
         return copy;
+    }
+
+    movementsOf(piece: Piece): Movement[] | undefined {
+        if (this.movementsCache.has(piece)) {
+            return this.movementsCache.get(piece);
+        }
+
+        const movements = piece.validMovements(this);
+        this.movementsCache.set(piece, movements);
+
+        return movements;
+    }
+
+    clearMovementsCache() {
+        this.movementsCache.clear();
+    }
+
+    togglePieceAt(piece: Piece, square: { row: number; column: number }) {
+        this.hash ^= PIECE_SQUARE[pieceSquareIndex(piece, square)];
+    }
+
+    toggleTurn() {
+        this.hash ^= TURN;
+    }
+
+    toggleCastlingRight(right: CastlingRight) {
+        this.hash ^= CASTLING[CASTLING_INDEX[right]];
+    }
+
+    toggleEnPassantColumn(column: number) {
+        this.hash ^= EN_PASSANT[column];
+    }
+
+    recomputeHash(): bigint {
+        let hash = 0n;
+
+        for (const color of ["white", "black"] as const) {
+            for (const piece of this.getPieces(null, color, false)) {
+                hash ^= PIECE_SQUARE[pieceSquareIndex(piece, piece.position)];
+            }
+        }
+
+        if (this.turn === "white") hash ^= TURN;
+
+        for (const right of Object.keys(CASTLING_INDEX) as CastlingRight[]) {
+            if (this.castlingRights[right]) {
+                hash ^= CASTLING[CASTLING_INDEX[right]];
+            }
+        }
+
+        if (this.enPassantColumn !== null) {
+            hash ^= EN_PASSANT[this.enPassantColumn];
+        }
+
+        return hash;
     }
 
     initializeBoard() {
@@ -110,8 +197,8 @@ export class Board {
         return board;
     }
 
-    savePosition(): { string: string; valuation: number; repeated: number } {
-        const hashString = this.getPositionString();
+    savePosition(): PositionRecord {
+        const hashString = this.hash;
 
         if (this.positions.has(hashString)) {
             const positionData = this.positions.get(hashString)!;
@@ -119,7 +206,7 @@ export class Board {
             this.positions.set(hashString, positionData);
 
             return {
-                string: hashString,
+                hash: hashString,
                 valuation: positionData.valuation,
                 repeated: positionData.repeated,
             };
@@ -130,7 +217,7 @@ export class Board {
             });
 
             return {
-                string: hashString,
+                hash: hashString,
                 valuation: 0,
                 repeated: 1,
             };
@@ -151,19 +238,15 @@ export class Board {
 
         for (const piece of [...whitePieces, ...blackPieces]) {
             hashString += `${piece.name}${piece.color}${piece.position.row}${piece.position.column}`;
-
-            if (!(piece instanceof Rook) && !(piece instanceof Pawn)) continue;
-
-            for (const movement of piece.validMovements(this) || []) {
-                if (
-                    movement.type === "king_castling" ||
-                    movement.type === "queen_castling" ||
-                    movement.type === "en_passant"
-                ) {
-                    hashString += `${movement.type}${movement.row}${movement.column}`;
-                }
-            }
         }
+
+        const { whiteKing, whiteQueen, blackKing, blackQueen } =
+            this.castlingRights;
+
+        hashString += `|${whiteKing ? "K" : ""}${whiteQueen ? "Q" : ""}${
+            blackKing ? "k" : ""
+        }${blackQueen ? "q" : ""}`;
+        hashString += `|${this.enPassantColumn ?? "-"}`;
 
         return hashString;
     }
@@ -201,6 +284,7 @@ export class Board {
     }
 
     setTurn(turn: "black" | "white") {
+        if (turn !== this.turn) this.toggleTurn();
         this.turn = turn;
     }
 
@@ -209,6 +293,9 @@ export class Board {
     }
 
     replacePiece(pieceToReplace: Piece, newPiece: Piece) {
+        this.togglePieceAt(pieceToReplace, pieceToReplace.position);
+        this.togglePieceAt(newPiece, pieceToReplace.position);
+
         this.squares[pieceToReplace.position.row][
             pieceToReplace.position.column
         ].piece = newPiece;
