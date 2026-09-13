@@ -30,11 +30,18 @@ function countNodes(board: Board, depth: number): number {
     for (const { piece, movement } of allValidMoves) {
         const hashBefore = board.hash;
         const clockBefore = board.halfmoveClock;
+        const historyBefore = board.history.length;
         const undo = controller.makeMovement(piece, movement);
 
         nodes += countNodes(board, depth - 1);
 
         controller.unmakeMovement(undo);
+
+        if (board.history.length !== historyBefore) {
+            throw new Error(
+                `unmake nao restaurou o historico: ${historyBefore} -> ${board.history.length}`,
+            );
+        }
 
         if (board.halfmoveClock !== clockBefore) {
             throw new Error(
@@ -87,6 +94,7 @@ export function prepareBoardFromPosition(position: string): Board {
     applyEnPassant(board, enPassant);
 
     board.hash = board.recomputeHash();
+    board.history = [board.hash];
 
     return board;
 }
@@ -98,7 +106,7 @@ function emptyBoard(): Board {
     board.blackPieces = [];
     board.whitePawns = [];
     board.blackPawns = [];
-    board.positions = new Map();
+    board.history = [];
     board.clearMovementsCache();
 
     for (const row of board.squares) {

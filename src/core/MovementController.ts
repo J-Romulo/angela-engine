@@ -1,5 +1,5 @@
 import { isSquareAttacked } from "./attacks";
-import { Board, PositionRecord } from "./board/Board";
+import { Board } from "./board/Board";
 import { NotationValidator } from "./NotationValidator";
 import { Bishop } from "./pieces/Bishop";
 import { King } from "./pieces/King";
@@ -88,7 +88,7 @@ export class MovementController {
         if (moveType.includes("castling")) {
             this.board.clearMovementsCache();
             this.castlingMovement(moveType);
-            return this.reportGameEnd(this.board.savePosition());
+            return this.reportGameEnd(this.board.repetitionCount());
         }
 
         const { pieceSymbol, ...ambiguation } =
@@ -195,6 +195,7 @@ export class MovementController {
 
         board.setTurn(board.turn === "white" ? "black" : "white");
         board.setRound(board.round + 1);
+        board.history.push(board.hash);
 
         return undo;
     }
@@ -209,6 +210,7 @@ export class MovementController {
         board.castlingRights = undo.castlingRights;
         board.enPassantColumn = undo.enPassantColumn;
         board.halfmoveClock = undo.halfmoveClock;
+        board.history.pop();
 
         this.relocate(undo.moved);
         if (undo.rook) this.relocate(undo.rook);
@@ -256,7 +258,7 @@ export class MovementController {
 
     applyMovement(piece: Piece, movement: Movement, promotionSymbol?: string) {
         this.makeMovement(piece, movement, promotionSymbol);
-        return this.board.savePosition();
+        return this.board.repetitionCount();
     }
 
     isInCheck(color: "black" | "white" = this.board.turn): boolean {
@@ -285,10 +287,10 @@ export class MovementController {
         return "ongoing";
     }
 
-    reportGameEnd(nextPosition: PositionRecord): boolean {
+    reportGameEnd(repetitions: number): boolean {
         this.board.check = this.isInCheck();
 
-        const status = this.gameStatus(nextPosition.repeated);
+        const status = this.gameStatus(repetitions);
 
         switch (status) {
             case "checkmate":
@@ -426,6 +428,7 @@ export class MovementController {
 
         this.board.setTurn(this.board.turn === "white" ? "black" : "white");
         this.board.setRound(this.board.round + 1);
+        this.board.history.push(this.board.hash);
 
         return { movement: kingMovement, king: movedKing, rook: movedRook };
     }

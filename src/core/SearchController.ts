@@ -201,6 +201,11 @@ export class SearchController {
             return { piece: null, move: null, evaluation: 0 };
         }
 
+        // Uma repeticao ja basta dentro da arvore: se a linha leva a repetir,
+        // os dois lados podem insistir, e o resultado pratico e empate.
+        if (ply > 0 && board.isRepetition()) {
+            return { piece: null, move: null, evaluation: 0 };
+        }
         const currentPlayerPieces = board.getPieces(null, turn, false);
 
         const alphaOriginal = alpha;

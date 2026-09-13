@@ -15,12 +15,6 @@ import {
     TURN,
 } from "../zobrist";
 
-export type PositionRecord = {
-    hash: bigint;
-    valuation: number;
-    repeated: number;
-};
-
 export type Square = {
     color: "black" | "white";
     piece: Piece | null;
@@ -39,7 +33,8 @@ export class Board {
     whitePawns: Piece[] = [];
     blackPawns: Piece[] = [];
 
-    positions: Map<bigint, { valuation: number; repeated: number }> = new Map();
+    /** Hash de cada posicao ja alcancada, em ordem. Empilhado pelo make. */
+    history: bigint[] = [];
 
     castlingRights: Record<CastlingRight, boolean> = {
         whiteKing: true,
@@ -84,6 +79,7 @@ export class Board {
         ];
         this.squares = this.initializeBoard();
         this.hash = this.recomputeHash();
+        this.history = [this.hash];
     }
 
     movementsOf(piece: Piece): Movement[] | undefined {
@@ -176,31 +172,35 @@ export class Board {
         return board;
     }
 
-    savePosition(): PositionRecord {
-        const hashString = this.hash;
+    /**
+     * Quantas vezes a posicao atual ja apareceu, ela inclusa.
+     *
+     * Anda de dois em dois - so posicoes com a mesma vez podem repetir - e
+     * para no limite do relogio: antes dele houve captura ou lance de peao, e
+     * nada anterior a isso pode voltar a acontecer.
+     */
+    repetitionCount(): number {
+        const last = this.history.length - 1;
+        const oldest = Math.max(0, last - this.halfmoveClock);
 
-        if (this.positions.has(hashString)) {
-            const positionData = this.positions.get(hashString)!;
-            positionData.repeated += 1;
-            this.positions.set(hashString, positionData);
-
-            return {
-                hash: hashString,
-                valuation: positionData.valuation,
-                repeated: positionData.repeated,
-            };
-        } else {
-            this.positions.set(hashString, {
-                valuation: 0,
-                repeated: 1,
-            });
-
-            return {
-                hash: hashString,
-                valuation: 0,
-                repeated: 1,
-            };
+        let count = 0;
+        for (let i = last; i >= oldest; i -= 2) {
+            if (this.history[i] === this.hash) count++;
         }
+
+        return count;
+    }
+
+    /** A posicao atual ja apareceu antes? Versao curta, para a busca. */
+    isRepetition(): boolean {
+        const last = this.history.length - 1;
+        const oldest = Math.max(0, last - this.halfmoveClock);
+
+        for (let i = last - 2; i >= oldest; i -= 2) {
+            if (this.history[i] === this.hash) return true;
+        }
+
+        return false;
     }
 
     getPositionString(): string {

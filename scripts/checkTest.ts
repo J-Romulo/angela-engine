@@ -1,4 +1,5 @@
 import { prepareBoardFromPosition } from "../src/application/Perft";
+import { Board } from "../src/core/board/Board";
 import { GameStatus, MovementController } from "../src/core/MovementController";
 
 type CheckCase = {
@@ -98,6 +99,59 @@ function silenced<T>(action: () => T): T {
     }
 }
 
+/** Cavalos indo e voltando: a posicao inicial se repete a cada quatro lances. */
+const REPETITION_LINE = [
+    "Nf3",
+    "Nf6",
+    "Ng1",
+    "Ng8", // 2a ocorrencia da posicao inicial
+    "Nf3",
+    "Nf6",
+    "Ng1",
+    "Ng8", // 3a ocorrencia
+];
+
+function repetitionSuite(): number {
+    const board = new Board();
+    const controller = new MovementController(board);
+    let failed = 0;
+
+    console.log();
+    console.log("repeticao: cavalos indo e voltando");
+
+    REPETITION_LINE.forEach((move, index) => {
+        silenced(() => controller.executeMovement(move));
+
+        const ply = index + 1;
+        const expectedCount = ply === 4 ? 2 : ply === 8 ? 3 : null;
+        const expectedStatus = ply === 8 ? "threefold" : "ongoing";
+
+        const count = board.repetitionCount();
+        const status = controller.gameStatus(count);
+
+        // So os plies 4 e 8 voltam a posicao inicial; o resto e posicao nova.
+        const ok =
+            status === expectedStatus &&
+            (expectedCount === null || count === expectedCount);
+
+        if (!ok) failed++;
+
+        if (expectedCount !== null || !ok) {
+            const expectation = expectedCount
+                ? `${expectedStatus}, ${expectedCount} ocorrencias`
+                : expectedStatus;
+
+            console.log(
+                `   ${ok ? "OK    " : "FALHOU"} apos ${move.padEnd(4)}` +
+                    ` ocorrencias=${count} status=${status}` +
+                    ` (esperado ${expectation})`,
+            );
+        }
+    });
+
+    return failed;
+}
+
 function run() {
     let passed = 0;
     let failed = 0;
@@ -121,6 +175,7 @@ function run() {
                 `  ${ok ? "OK" : "FALHOU"}`,
         );
     }
+    failed += repetitionSuite();
 
     console.log(`\n${passed} passaram, ${failed} falharam`);
     process.exitCode = failed === 0 ? 0 : 1;
