@@ -5,6 +5,18 @@ import { Movement, Piece } from "./Piece";
 export class Rook extends Piece {
     value = 5;
 
+    // prettier-ignore
+    static readonly TABLE: readonly number[] = [
+      0,   0,   0,   0,   0,   0,   0,   0,
+      5,  10,  10,  10,  10,  10,  10,   5,
+     -5,   0,   0,   0,   0,   0,   0,  -5,
+     -5,   0,   0,   0,   0,   0,   0,  -5,
+     -5,   0,   0,   0,   0,   0,   0,  -5,
+     -5,   0,   0,   0,   0,   0,   0,  -5,
+     -5,   0,   0,   0,   0,   0,   0,  -5,
+      0,   0,   0,   5,   5,   0,   0,   0,
+    ];
+
     movementDirections = [
         { row: 0, column: 1 }, // Right
         { row: 0, column: -1 }, // Left

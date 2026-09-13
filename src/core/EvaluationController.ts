@@ -1,34 +1,68 @@
-/* eslint-disable prettier/prettier */
 import { Board } from "./board/Board";
+import { Bishop } from "./pieces/Bishop";
+import { King } from "./pieces/King";
+import { Knight } from "./pieces/Knight";
+import { Pawn } from "./pieces/Pawn";
+import { Queen } from "./pieces/Queen";
+import { Rook } from "./pieces/Rook";
+
+const PAWN_UNIT = 100;
+
+const ENDGAME_THRESHOLD = 13;
+
+const TABLES: Record<string, readonly number[]> = {
+    "": Pawn.TABLE,
+    N: Knight.TABLE,
+    B: Bishop.TABLE,
+    R: Rook.TABLE,
+    Q: Queen.TABLE,
+    K: King.TABLE,
+};
 
 export class EvaluationController {
-    static evaluatePosition(board: Board, turn: "white" | "black", currentPlayerValidMoves: number, opponentValidMoves: number): number {
-        const currentPlayerPieces = board.getPieces(null, turn, false);
-        const opponentColor = turn === "white" ? "black" : "white";
-        const opponentPieces = board.getPieces(null, opponentColor, false);
+    static evaluatePosition(board: Board, turn: "white" | "black"): number {
+        const opponent = turn === "white" ? "black" : "white";
+        const endgame = isEndgame(board);
 
-        const currentNumBishops = currentPlayerPieces.filter((piece) => piece.name === "B").length;
-        const currentNumKnights = currentPlayerPieces.filter((piece) => piece.name === "N").length;
-        const currentNumRooks = currentPlayerPieces.filter((piece) => piece.name === "R").length;
-        const currentNumQueens = currentPlayerPieces.filter((piece) => piece.name === "Q").length;
-        const currentNumPawns = currentPlayerPieces.filter((piece) => piece.name === "").length;
-        const currentNumKings = currentPlayerPieces.filter((piece) => piece.name === "K").length;
-
-        const opponentNumBishops = opponentPieces.filter((piece) => piece.name === "B").length;
-        const opponentNumKnights = opponentPieces.filter((piece) => piece.name === "N").length;
-        const opponentNumRooks = opponentPieces.filter((piece) => piece.name === "R").length;
-        const opponentNumQueens = opponentPieces.filter((piece) => piece.name === "Q").length;
-        const opponentNumPawns = opponentPieces.filter((piece) => piece.name === "").length;
-        const opponentNumKings = opponentPieces.filter((piece) => piece.name === "K").length;
-        
-
-        return (
-            200 * (currentNumKings - opponentNumKings) +
-            9 * (currentNumQueens - opponentNumQueens) +
-            5 * (currentNumRooks - opponentNumRooks) +
-            3 * ( (currentNumBishops - opponentNumBishops) + (currentNumKnights - opponentNumKnights)) +
-            1 * (currentNumPawns - opponentNumPawns) +
-            0.1 * (currentPlayerValidMoves - opponentValidMoves)
-        )
+        return score(board, turn, endgame) - score(board, opponent, endgame);
     }
+}
+
+function score(
+    board: Board,
+    color: "black" | "white",
+    endgame: boolean,
+): number {
+    let total = 0;
+
+    for (const piece of board.getPieces(null, color, false)) {
+        const { row, column } = piece.position;
+
+        // As tabelas valem para as brancas, com a oitava fileira na primeira
+        // linha. As pretas leem espelhado na vertical: peao preto na fileira 2
+        // esta tao perto de promover quanto peao branco na 7.
+        const index =
+            color === "white" ? (7 - row) * 8 + column : row * 8 + column;
+
+        const table =
+            endgame && piece.name === "K"
+                ? King.ENDGAME_TABLE
+                : TABLES[piece.name];
+
+        total += piece.value * PAWN_UNIT + (table?.[index] ?? 0);
+    }
+
+    return total;
+}
+
+function isEndgame(board: Board): boolean {
+    let heavy = 0;
+
+    for (const color of ["white", "black"] as const) {
+        for (const piece of board.getPieces(null, color, false)) {
+            if (piece.name !== "K" && piece.name !== "") heavy += piece.value;
+        }
+    }
+
+    return heavy <= ENDGAME_THRESHOLD;
 }

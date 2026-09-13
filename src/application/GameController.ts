@@ -180,7 +180,7 @@ export class GameController {
         const nextPosition = this.moveController.applyMovement(piece, move);
 
         console.log(
-            `Computer plays ${label} (${move.type}, eval ${evaluation.toFixed(2)}, ${elapsed}ms)`,
+            `Computer plays ${label} (${move.type}, eval ${(evaluation / 100).toFixed(2)}, ${elapsed}ms)`,
         );
         this.prompt("Press Enter to continue...");
 

@@ -5,6 +5,18 @@ import { Movement, Piece } from "./Piece";
 export class Queen extends Piece {
     value = 9;
 
+    // prettier-ignore
+    static readonly TABLE: readonly number[] = [
+    -20, -10, -10,  -5,  -5, -10, -10, -20,
+    -10,   0,   0,   0,   0,   0,   0, -10,
+    -10,   0,   5,   5,   5,   5,   0, -10,
+     -5,   0,   5,   5,   5,   5,   0,  -5,
+      0,   0,   5,   5,   5,   5,   0,  -5,
+    -10,   5,   5,   5,   5,   5,   0, -10,
+    -10,   0,   5,   0,   0,   0,   0, -10,
+    -20, -10, -10,  -5,  -5, -10, -10, -20,
+    ];
+
     movementDirections = [
         { row: 0, column: 1 }, // Right
         { row: 0, column: -1 }, // Left

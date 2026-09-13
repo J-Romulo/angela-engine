@@ -5,6 +5,18 @@ import { Movement, Piece } from "./Piece";
 export class Bishop extends Piece {
     value = 3;
 
+    // prettier-ignore
+    static readonly TABLE: readonly number[] = [
+    -20, -10, -10, -10, -10, -10, -10, -20,
+    -10,   0,   0,   0,   0,   0,   0, -10,
+    -10,   0,   5,  10,  10,   5,   0, -10,
+    -10,   5,   5,  10,  10,   5,   5, -10,
+    -10,   0,  10,  10,  10,  10,   0, -10,
+    -10,  10,  10,  10,  10,  10,  10, -10,
+    -10,   5,   0,   0,   0,   0,   5, -10,
+    -20, -10, -10, -10, -10, -10, -10, -20,
+    ];
+
     movementDirections = [
         { row: 1, column: 1 }, // Top-right
         { row: 1, column: -1 }, // Top-left

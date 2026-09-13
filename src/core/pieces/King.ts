@@ -12,6 +12,33 @@ const rookDirections = [
 export class King extends Piece {
     value = 0;
 
+    /** Meio-jogo: o rei quer o canto, atras dos peoes. */
+    // prettier-ignore
+    static readonly TABLE: readonly number[] = [
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -20, -30, -30, -40, -40, -30, -30, -20,
+    -10, -20, -20, -20, -20, -20, -20, -10,
+     20,  20,   0,   0,   0,   0,  20,  20,
+     20,  30,  10,   0,   0,  10,  30,  20,
+    ];
+
+    /** Final: o rei vira peca ativa e quer o centro. Sem isso ele fica */
+    /** escondido no canto e o final de peoes se perde sozinho. */
+    // prettier-ignore
+    static readonly ENDGAME_TABLE: readonly number[] = [
+    -50, -40, -30, -20, -20, -30, -40, -50,
+    -30, -20, -10,   0,   0, -10, -20, -30,
+    -30, -10,  20,  30,  30,  20, -10, -30,
+    -30, -10,  30,  40,  40,  30, -10, -30,
+    -30, -10,  30,  40,  40,  30, -10, -30,
+    -30, -10,  20,  30,  30,  20, -10, -30,
+    -30, -30,   0,   0,   0,   0, -30, -30,
+    -50, -30, -30, -30, -30, -30, -30, -50,
+    ];
+
     movementDirections = [
         { row: 1, column: 1 }, // Right - top
         { row: 0, column: 1 }, // Right
