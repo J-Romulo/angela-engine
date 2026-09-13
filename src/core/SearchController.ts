@@ -3,7 +3,7 @@ import { EvaluationController } from "./EvaluationController";
 import { MovementController } from "./MovementController";
 import { Movement, Piece, Position } from "./pieces/Piece";
 
-const MAX_DEPTH = 4;
+const MAX_DEPTH = 6;
 const MATE = 1_000_000;
 const TT_MOVE_SCORE = 1000;
 
