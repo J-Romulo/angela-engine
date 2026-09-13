@@ -12,6 +12,8 @@ import { Position } from "../core/pieces/Piece";
 const squareName = (position: Position) =>
     `${"abcdefgh"[position.column]}${position.row + 1}`;
 
+const DEFAULT_SECONDS_PER_MOVE = 3;
+
 const formatEvaluation = (score: number) => {
     if (Math.abs(score) <= MATE_THRESHOLD) return (score / 100).toFixed(2);
 
@@ -89,8 +91,8 @@ export class GameController {
         console.log("                    PLAY VS COMPUTER");
         console.log("=".repeat(50));
         console.log();
-        console.log("The computer searches one move ahead and plays the move");
-        console.log("with the best material evaluation.");
+        console.log("The computer deepens its search until the time budget");
+        console.log("runs out, then plays the best move it found.");
         console.log();
 
         const colorChoice = this.prompt("Play as (w)hite or (b)lack? [w]: ");
@@ -98,14 +100,25 @@ export class GameController {
             colorChoice.trim().toLowerCase() === "b" ? "black" : "white";
         const computerColor = playerColor === "white" ? "black" : "white";
 
+        const secondsChoice = Number(
+            this.prompt(
+                `Seconds per move [${DEFAULT_SECONDS_PER_MOVE}]: `,
+            ).trim(),
+        );
+        const seconds =
+            Number.isFinite(secondsChoice) && secondsChoice > 0
+                ? secondsChoice
+                : DEFAULT_SECONDS_PER_MOVE;
+
         console.log();
         console.log(`You are ${playerColor}. Computer is ${computerColor}.`);
+        console.log(`Computer thinks for up to ${seconds}s per move.`);
         console.log();
 
         const confirm = this.prompt("Start game? (y/n): ");
         if (confirm.toLowerCase() === "y") {
             this.newGame();
-            this.gameLoop(computerColor);
+            this.gameLoop(computerColor, seconds * 1000);
         }
     }
 
@@ -126,13 +139,16 @@ export class GameController {
         }
     }
 
-    gameLoop(computerColor?: "white" | "black") {
+    gameLoop(computerColor?: "white" | "black", timeLimitMs = Infinity) {
         let matchFinished = false;
         while (!matchFinished) {
             this.printBoard();
 
             if (this.board.turn === computerColor) {
-                matchFinished = this.playComputerMove(computerColor);
+                matchFinished = this.playComputerMove(
+                    computerColor,
+                    timeLimitMs,
+                );
                 if (matchFinished) {
                     this.printBoard();
                 }
@@ -155,7 +171,10 @@ export class GameController {
         this.prompt("\nPress Enter to return to the menu...");
     }
 
-    playComputerMove(computerColor: "white" | "black"): boolean {
+    playComputerMove(
+        computerColor: "white" | "black",
+        timeLimitMs = Infinity,
+    ): boolean {
         const bookMove = OpeningBook.pick(this.board);
         if (bookMove) {
             try {
@@ -176,8 +195,10 @@ export class GameController {
         const { piece, move, evaluation } = SearchController.search(
             this.board,
             computerColor,
+            timeLimitMs,
         );
         const elapsed = Date.now() - startedAt;
+        const { depth, nodes, quiescenceNodes } = SearchController.stats;
 
         if (!piece || !move) {
             console.log(`${computerColor} has no legal moves. Game over.`);
@@ -191,7 +212,8 @@ export class GameController {
         const nextPosition = this.moveController.applyMovement(piece, move);
 
         console.log(
-            `Computer plays ${label} (${move.type}, eval ${formatEvaluation(evaluation)}, ${elapsed}ms)`,
+            `Computer plays ${label} (${move.type}, eval ${formatEvaluation(evaluation)},` +
+                ` depth ${depth}, ${nodes + quiescenceNodes} nodes, ${elapsed}ms)`,
         );
         this.prompt("Press Enter to continue...");
 
