@@ -29,6 +29,13 @@ const PROMOTION_BONUS = 90;
 const CASTLING_BONUS = 20;
 const CHECK_BONUS = 25;
 
+const QUIESCENCE_MAX_PLY = 6;
+
+const isNoisy = (movement: Movement) =>
+    movement.type === "capture" ||
+    movement.type === "en_passant" ||
+    movement.type.includes("promotion");
+
 export class SearchController {
     static search(board: Board, turn: "white" | "black") {
         let bestMove = {
@@ -94,11 +101,13 @@ export class SearchController {
             if (opponentIsStuck) {
                 evaluation = movementController.isInCheck() ? MATE + depth : 0;
             } else if (depth <= 1) {
-                evaluation = EvaluationController.evaluatePosition(
+                evaluation = -this.quiescence(
                     board,
-                    turn,
-                    this.countMoves(board, turn),
-                    this.countMoves(board, opponent),
+                    opponent,
+                    -beta,
+                    -alpha,
+                    movementController,
+                    1,
                 );
             } else {
                 evaluation = -this.searchBestMove(
@@ -142,6 +151,64 @@ export class SearchController {
         }
 
         return bestPieceAndMove;
+    }
+
+    private static quiescence(
+        board: Board,
+        color: "white" | "black",
+        alpha: number,
+        beta: number,
+        controller: MovementController,
+        ply: number,
+    ): number {
+        const opponent = color === "white" ? "black" : "white";
+        const inCheck = controller.isInCheck(color);
+
+        if (!inCheck) {
+            // Piso do no: ninguem e obrigado a capturar. Captura so interessa
+            // se bater isto.
+            const standPat = EvaluationController.evaluatePosition(
+                board,
+                color,
+            );
+
+            if (standPat >= beta) return beta;
+            if (standPat > alpha) alpha = standPat;
+        } else if (ply >= QUIESCENCE_MAX_PLY) {
+            return EvaluationController.evaluatePosition(board, color);
+        }
+
+        const moves = board
+            .getPieces(null, color, false)
+            .flatMap((piece) =>
+                (board.movementsOf(piece) ?? [])
+                    .filter((movement) => inCheck || isNoisy(movement))
+                    .map((movement) => ({ piece, movement })),
+            );
+
+        if (moves.length === 0) {
+            return inCheck ? -(MATE - ply) : alpha;
+        }
+
+        for (const { piece, movement } of this.orderMoves(moves, board)) {
+            const undo = controller.makeMovement(piece, movement);
+
+            const score = -this.quiescence(
+                board,
+                opponent,
+                -beta,
+                -alpha,
+                controller,
+                ply + 1,
+            );
+
+            controller.unmakeMovement(undo);
+
+            if (score >= beta) return beta;
+            if (score > alpha) alpha = score;
+        }
+
+        return alpha;
     }
 
     private static orderMoves(
@@ -190,14 +257,5 @@ export class SearchController {
         }
 
         return [...moves].sort((a, b) => scoreMove(b) - scoreMove(a));
-    }
-
-    private static countMoves(board: Board, color: "white" | "black"): number {
-        return board
-            .getPieces(null, color, false)
-            .reduce(
-                (total, p) => total + (board.movementsOf(p)?.length ?? 0),
-                0,
-            );
     }
 }
