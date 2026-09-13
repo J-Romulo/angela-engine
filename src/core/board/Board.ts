@@ -50,6 +50,13 @@ export class Board {
 
     enPassantColumn: number | null = null;
 
+    /**
+     * Meios-lances desde a ultima captura ou lance de peao. Fora do hash
+     * Zobrist de proposito: duas posicoes iguais com relogios diferentes sao a
+     * mesma posicao para transposicao.
+     */
+    halfmoveClock = 0;
+
     hash = 0n;
 
     private movementsCache: Map<Piece, Movement[] | undefined> = new Map();

@@ -29,11 +29,18 @@ function countNodes(board: Board, depth: number): number {
 
     for (const { piece, movement } of allValidMoves) {
         const hashBefore = board.hash;
+        const clockBefore = board.halfmoveClock;
         const undo = controller.makeMovement(piece, movement);
 
         nodes += countNodes(board, depth - 1);
 
         controller.unmakeMovement(undo);
+
+        if (board.halfmoveClock !== clockBefore) {
+            throw new Error(
+                `unmake nao restaurou o relogio: ${clockBefore} -> ${board.halfmoveClock}`,
+            );
+        }
 
         if (board.hash !== hashBefore) {
             throw new Error(
@@ -50,9 +57,8 @@ function countNodes(board: Board, depth: number): number {
 const FILES = "abcdefgh";
 
 export function prepareBoardFromPosition(position: string): Board {
-    const [placement, activeColor, castling, enPassant, , fullmove] = position
-        .trim()
-        .split(/\s+/);
+    const [placement, activeColor, castling, enPassant, halfmove, fullmove] =
+        position.trim().split(/\s+/);
 
     const board = emptyBoard();
 
@@ -74,6 +80,8 @@ export function prepareBoardFromPosition(position: string): Board {
 
     board.round =
         (Number(fullmove || 1) - 1) * 2 + (board.turn === "white" ? 1 : 2);
+
+    board.halfmoveClock = Number(halfmove || 0);
 
     applyCastlingRights(board, castling);
     applyEnPassant(board, enPassant);

@@ -58,6 +58,7 @@ export type MoveUndo = {
     hash: bigint;
     castlingRights: Record<CastlingRight, boolean>;
     enPassantColumn: number | null;
+    halfmoveClock: number;
     turn: "black" | "white";
     round: number;
 };
@@ -125,6 +126,7 @@ export class MovementController {
             hash: board.hash,
             castlingRights: { ...board.castlingRights },
             enPassantColumn: board.enPassantColumn,
+            halfmoveClock: board.halfmoveClock,
             turn: board.turn,
             round: board.round,
         };
@@ -175,6 +177,9 @@ export class MovementController {
         const { moved, captured } = this.movePieceInTheBoard(movingPiece, to);
         undo.moved = moved;
 
+        const irreversible = piece.name === "" || captured || undo.captured;
+        board.halfmoveClock = irreversible ? 0 : board.halfmoveClock + 1;
+
         if (captured) {
             undo.captured = captured;
             undo.capturedSquare = { ...to };
@@ -195,6 +200,7 @@ export class MovementController {
         board.hash = undo.hash;
         board.castlingRights = undo.castlingRights;
         board.enPassantColumn = undo.enPassantColumn;
+        board.halfmoveClock = undo.halfmoveClock;
 
         this.relocate(undo.moved);
         if (undo.rook) this.relocate(undo.rook);
@@ -396,6 +402,8 @@ export class MovementController {
             row: kingMovement.row,
             column: rookColumn,
         }).moved;
+
+        this.board.halfmoveClock += 1;
 
         this.board.setTurn(this.board.turn === "white" ? "black" : "white");
         this.board.setRound(this.board.round + 1);
