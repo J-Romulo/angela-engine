@@ -7,7 +7,8 @@
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "perft": "ts-node ./scripts/perftTest.ts",
-    "zobrist": "ts-node ./scripts/zobristTest.ts"
+    "zobrist": "ts-node ./scripts/zobristTest.ts",
+    "check": "ts-node ./scripts/checkTest.ts"
   },
   "keywords": [],
   "author": "",
