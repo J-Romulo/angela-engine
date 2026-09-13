@@ -11,6 +11,12 @@ export const MATE_THRESHOLD = MATE - 1000;
 
 const MAX_TT_ENTRIES = 1 << 20;
 
+const MIN_GROWTH = 1.5;
+const MAX_GROWTH = 6;
+const FIRST_GROWTH_GUESS = 3;
+
+const MIN_SOFT_LIMIT_DEPTH = 3;
+
 type TTFlag = "exact" | "lower" | "upper";
 
 type TTEntry = {
@@ -45,6 +51,7 @@ const isNoisy = (movement: Movement) =>
     movement.type.includes("promotion");
 
 export type SearchStats = {
+    depth: number;
     nodes: number;
     quiescenceNodes: number;
     ttProbes: number;
@@ -96,8 +103,10 @@ export class SearchController {
         this.stats = emptyStats();
         this.stopped = false;
         this.clockCounter = 0;
+
+        const startedAt = Date.now();
         this.deadline =
-            timeLimitMs === Infinity ? Infinity : Date.now() + timeLimitMs;
+            timeLimitMs === Infinity ? Infinity : startedAt + timeLimitMs;
 
         let bestMove = {
             piece: null,
@@ -105,7 +114,10 @@ export class SearchController {
             evaluation: -Infinity,
         } as SearchResult;
 
+        let previousIterationMs = 0;
+
         for (let i = 1; i <= this.maxDepth; i++) {
+            const iterationStartedAt = Date.now();
             const result = this.searchBestMove(
                 board,
                 turn,
@@ -118,7 +130,29 @@ export class SearchController {
             if (this.stopped && i > 1) break;
 
             bestMove = result;
+            this.stats.depth = i;
+
             if (this.stopped) break;
+
+            // Mate forcado: aprofundar nao tem o que melhorar.
+            if (Math.abs(bestMove.evaluation) > MATE_THRESHOLD) break;
+
+            const iterationMs = Date.now() - iterationStartedAt;
+            const growth = previousIterationMs
+                ? Math.min(
+                      MAX_GROWTH,
+                      Math.max(MIN_GROWTH, iterationMs / previousIterationMs),
+                  )
+                : FIRST_GROWTH_GUESS;
+
+            if (
+                i >= MIN_SOFT_LIMIT_DEPTH &&
+                iterationMs * growth > this.deadline - Date.now()
+            ) {
+                break;
+            }
+
+            previousIterationMs = iterationMs;
         }
 
         return bestMove;
@@ -393,6 +427,7 @@ function scoreFromTT(score: number, ply: number): number {
 
 function emptyStats(): SearchStats {
     return {
+        depth: 0,
         nodes: 0,
         quiescenceNodes: 0,
         ttProbes: 0,

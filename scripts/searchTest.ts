@@ -152,6 +152,7 @@ function timeSuite() {
             const startedAt = Date.now();
             const result = SearchController.search(board, board.turn, budget);
             const elapsed = Date.now() - startedAt;
+            const depth = SearchController.stats.depth;
 
             const inBudget = elapsed <= budget * 1.3 + 100;
             const hasMove = result.move !== null && result.piece !== null;
@@ -164,6 +165,7 @@ function timeSuite() {
                 `${ok ? "OK    " : "FALHOU"}  ${name.padEnd(15)}` +
                     ` orcamento ${String(budget).padStart(4)}ms` +
                     ` gastou ${String(elapsed).padStart(5)}ms` +
+                    ` depth ${String(depth).padStart(2)}` +
                     `  lance ${hasMove ? moveLabel(result).padEnd(9) : "NENHUM   "}` +
                     ` tabuleiro ${intact ? "intacto" : "CORROMPIDO"}`,
             );
