@@ -1,4 +1,5 @@
 import { Board } from "../board/Board";
+import { isSquareAttacked } from "../attacks";
 import { Movement, Piece, Position } from "./Piece";
 
 const rookDirections = [
@@ -36,8 +37,8 @@ export class King extends Piece {
         );
     }
 
-    validMovements(board: Board, checkKingInCheck = false) {
-        const validMovements = [];
+    validMovements(board: Board) {
+        const validMovements: Movement[] = [];
         const currentRow = this.position.row;
         const currentColumn = this.position.column;
 
@@ -46,43 +47,33 @@ export class King extends Piece {
             const col = this.position.column + colDir;
 
             if (row > 7 || row < 0 || col > 7 || col < 0) continue;
+
             const possibleSquare = board.getSquare({ row, column: col });
-
-            // Em uma varredura de ataque interessa apenas quais casas o rei
-            // cobre; filtrar aqui recursaria de volta no rei adversario.
-            const putsInCheck = checkKingInCheck
-                ? false
-                : this.checkIfMovePutsKingInCheck(
-                      board,
-                      { row, column: col },
-                      this,
-                  );
-
-            if (putsInCheck) continue;
-
-            if (possibleSquare.empty) {
-                validMovements.push({
-                    row,
-                    column: col,
-                    type: "move" as Movement["type"],
-                });
-            } else {
-                if (possibleSquare.piece!.color !== this.color) {
-                    validMovements.push({
-                        row,
-                        column: col,
-                        type: "capture" as Movement["type"],
-                        check:
-                            checkKingInCheck &&
-                            possibleSquare.piece instanceof King,
-                    });
-                }
+            if (
+                !possibleSquare.empty &&
+                possibleSquare.piece!.color === this.color
+            ) {
+                continue;
             }
-        }
 
-        // O roque nao ataca casa nenhuma, entao nao entra em varredura de
-        // ataque - e gera-lo ali recursaria pelas casas atacadas.
-        if (checkKingInCheck) return validMovements;
+            if (
+                this.checkIfMovePutsKingInCheck(
+                    board,
+                    { row, column: col },
+                    this,
+                )
+            ) {
+                continue;
+            }
+
+            validMovements.push({
+                row,
+                column: col,
+                type: (possibleSquare.empty
+                    ? "move"
+                    : "capture") as Movement["type"],
+            });
+        }
 
         // Direito lido do estado do tabuleiro, nao deduzido de movementsMade.
         //King castling
@@ -208,17 +199,15 @@ export class King extends Piece {
     }
 
     /**
-     * True se o rei estiver em xeque em alguma das casas informadas da sua
-     * fileira - usado para barrar o roque saindo de, passando por ou parando
-     * em casa atacada.
+     * Nenhuma casa do caminho do roque pode estar atacada: nem a de saida, nem
+     * as de passagem. Varredura direta - antes isto movia o rei de verdade para
+     * cada casa so para perguntar.
      */
     pathIsAttacked(board: Board, columns: number[]): boolean {
+        const enemy = this.color === "white" ? "black" : "white";
+
         return columns.some((column) =>
-            this.checkIfMovePutsKingInCheck(
-                board,
-                { row: this.position.row, column },
-                this,
-            ),
+            isSquareAttacked(board, { row: this.position.row, column }, enemy),
         );
     }
 
@@ -251,11 +240,7 @@ export class King extends Piece {
         const originalPiece = samePosition ? null : newSquare.piece;
 
         if (!samePosition) {
-            piece.move(
-                { row: movement.row, column: movement.column },
-                board.round,
-                true,
-            );
+            piece.move({ row: movement.row, column: movement.column }, true);
 
             newSquare.piece = piece;
             newSquare.empty = false;
@@ -264,32 +249,11 @@ export class King extends Piece {
             oldSquare.empty = true;
         }
 
-        const pieces =
-            this.color === "white"
-                ? [
-                      ...board.blackPieces.filter((piece) => !piece.captured),
-                      ...board.blackPawns.filter((piece) => !piece.captured),
-                  ]
-                : [
-                      ...board.whitePieces.filter((piece) => !piece.captured),
-                      ...board.whitePawns.filter((piece) => !piece.captured),
-                  ];
-
-        let putsInCheck = false;
-        pieces.forEach((pieceToAnalise) => {
-            // O rei adversario tambem cobre casas: sem ele os dois reis
-            // conseguiriam ficar lado a lado.
-            if (pieceToAnalise === originalPiece) return;
-
-            const validMovements = pieceToAnalise.validMovements(board, true);
-            if (validMovements && validMovements.length) {
-                validMovements.forEach((validMovement) => {
-                    if (validMovement.check) {
-                        putsInCheck = true;
-                    }
-                });
-            }
-        });
+        const putsInCheck = isSquareAttacked(
+            board,
+            this.position,
+            this.color === "white" ? "black" : "white",
+        );
 
         if (!samePosition) {
             oldSquare = board.getSquare({
@@ -302,7 +266,6 @@ export class King extends Piece {
             });
             piece.move(
                 { row: originalPosition.row, column: originalPosition.column },
-                board.round,
                 true,
             );
 

@@ -19,249 +19,111 @@ export class Pawn extends Piece {
         });
     }
 
-    validMovements(board: Board, checkKingInCheck = false) {
+    validMovements(board: Board) {
         const validMovements: Movement[] = [];
+        const king = board.getPieces("K", this.color)[0] as King;
+
         const direction = this.color === "white" ? 1 : -1;
         const currentRow = this.position.row;
         const currentColumn = this.position.column;
         const promotionRow = direction === 1 ? 7 : 0;
 
-        const forwardType: Movement["type"] =
-            currentRow + direction === promotionRow ? "promotion" : "move";
+        const push = (
+            row: number,
+            column: number,
+            type: Movement["type"],
+            directions = this.attackDirections,
+        ) => {
+            if (king.checkIfMovePutsKingInCheck(board, { row, column }, this)) {
+                return;
+            }
 
-        // Move one square forward
+            validMovements.push({
+                row,
+                column,
+                type,
+                check: this.searchForCheck(board, directions, { row, column }),
+            });
+        };
+
         const oneSquare = {
             column: currentColumn,
             row: currentRow + direction,
-            type: "move" as Movement["type"],
         };
+        if (oneSquare.row > 7 || oneSquare.row < 0) return validMovements;
 
-        if (oneSquare.row > 7 || oneSquare.row < 0) return;
+        // Avanco de uma casa
+        if (board.getSquare(oneSquare).empty) {
+            push(
+                oneSquare.row,
+                oneSquare.column,
+                oneSquare.row === promotionRow ? "promotion" : "move",
+            );
 
-        if (
-            oneSquare.row <= 7 &&
-            oneSquare.row >= 0 &&
-            board.getSquare(oneSquare).empty
-        ) {
-            const isCheck = checkKingInCheck
-                ? false
-                : this.searchForCheck(board, this.attackDirections, {
-                      row: oneSquare.row,
-                      column: oneSquare.column,
-                  });
-
-            if (!checkKingInCheck) {
-                const king = board.getPieces("K", this.color)[0] as King;
-                const putsOwnKingInCheck = king.checkIfMovePutsKingInCheck(
-                    board,
-                    { row: oneSquare.row, column: oneSquare.column },
-                    this,
-                );
-
-                if (!putsOwnKingInCheck) {
-                    validMovements.push({
-                        row: oneSquare.row,
-                        column: oneSquare.column,
-                        type: forwardType,
-                        check: isCheck,
-                    });
-                }
-            } else {
-                validMovements.push({
-                    row: oneSquare.row,
-                    column: oneSquare.column,
-                    type: forwardType,
-                    check: isCheck,
-                });
-            }
-        }
-
-        // Move two squares forward on first move
-        if (this.movementsMade === 0) {
+            // Avanco de duas, so na primeira saida do peao
             const twoSquares = {
                 column: currentColumn,
                 row: currentRow + 2 * direction,
-                type: "move" as Movement["type"],
             };
-            if (
-                board.getSquare(oneSquare).empty &&
-                board.getSquare(twoSquares).empty
-            ) {
-                const isCheck = checkKingInCheck
-                    ? false
-                    : this.searchForCheck(board, this.attackDirections, {
-                          row: twoSquares.row,
-                          column: twoSquares.column,
-                      });
-
-                if (!checkKingInCheck) {
-                    const king = board.getPieces("K", this.color)[0] as King;
-                    const putsOwnKingInCheck = king.checkIfMovePutsKingInCheck(
-                        board,
-                        { row: twoSquares.row, column: twoSquares.column },
-                        this,
-                    );
-
-                    if (!putsOwnKingInCheck) {
-                        validMovements.push({
-                            row: twoSquares.row,
-                            column: twoSquares.column,
-                            type: "move" as Movement["type"],
-                            check: isCheck,
-                        });
-                    }
-                } else {
-                    validMovements.push({
-                        row: twoSquares.row,
-                        column: twoSquares.column,
-                        type: "move" as Movement["type"],
-                        check: isCheck,
-                    });
-                }
+            if (this.movementsMade === 0 && board.getSquare(twoSquares).empty) {
+                push(twoSquares.row, twoSquares.column, "move");
             }
         }
 
-        // Capture diagonally
-        const diagonalMoves = [
-            {
-                column: currentColumn + 1,
-                row: currentRow + direction,
-                type: "capture" as Movement["type"],
-            },
-            {
-                column: currentColumn - 1,
-                row: currentRow + direction,
-                type: "capture" as Movement["type"],
-            },
-        ];
+        // Capturas na diagonal
+        for (const column of [currentColumn + 1, currentColumn - 1]) {
+            if (column > 7 || column < 0) continue;
 
-        for (const move of diagonalMoves) {
-            if (move.column > 7 || move.column < 0) continue;
-            const targetSquare = board.getSquare(move);
-            if (
-                !targetSquare.empty &&
-                targetSquare.piece!.color !== this.color
-            ) {
-                const isCheck = checkKingInCheck
-                    ? false
-                    : this.searchForCheck(board, this.attackDirections, {
-                          row: move.row,
-                          column: move.column,
-                      });
+            const row = currentRow + direction;
+            const targetSquare = board.getSquare({ row, column });
 
-                const captureType: Movement["type"] =
-                    move.row === promotionRow ? "promotion_capture" : "capture";
+            if (targetSquare.empty) continue;
+            if (targetSquare.piece!.color === this.color) continue;
 
-                if (!checkKingInCheck) {
-                    const king = board.getPieces("K", this.color)[0] as King;
-                    const putsOwnKingInCheck = king.checkIfMovePutsKingInCheck(
-                        board,
-                        { column: move.column, row: move.row },
-                        this,
-                    );
-
-                    if (!putsOwnKingInCheck) {
-                        validMovements.push({
-                            column: move.column,
-                            row: move.row,
-                            type: captureType,
-                            check: isCheck,
-                        });
-                    }
-                } else {
-                    validMovements.push({
-                        column: move.column,
-                        row: move.row,
-                        type: captureType,
-                        check:
-                            targetSquare.piece instanceof King ? true : isCheck,
-                    });
-                }
-            }
+            push(
+                row,
+                column,
+                row === promotionRow ? "promotion_capture" : "capture",
+            );
         }
 
-        // En passant
-        // Capturing pawn has to have moved 3 rows
-        // Captured pawn has to be next to the capturing pawn
-        // Captured pawn has have moved 2 rows in last turn
-        // Capture has to be made immediately after the pawn has moved 2 rows
-        // Linha 5 para as brancas (indice 4), linha 4 para as pretas (indice 3).
-        // Nao dá para usar `movementsMade`: ele soma |dLinha| + |dColuna|, entao
-        // um peao que capturou pelo caminho chega aqui com valor maior e perdia
-        // o en passant.
-        // A coluna nula descarta o bloco inteiro sem tocar no tabuleiro, e e o
-        // caso na esmagadora maioria dos lances.
+        // En passant. A coluna nula descarta o bloco sem tocar no tabuleiro, e
+        // e o caso na esmagadora maioria dos lances.
         if (
             board.enPassantColumn !== null &&
             currentRow === (direction === 1 ? 4 : 3)
         ) {
-            const sideSquares = [
-                { column: currentColumn + 1, row: currentRow },
-                { column: currentColumn - 1, row: currentRow },
-            ];
+            for (const column of [currentColumn + 1, currentColumn - 1]) {
+                // `continue`, nao `break`: na coluna h o primeiro lado sai do
+                // tabuleiro e o outro ainda precisa ser olhado.
+                if (column > 7 || column < 0) continue;
+                if (board.enPassantColumn !== column) continue;
 
-            for (const move of sideSquares) {
-                if (move.column > 7 || move.column < 0) continue;
-                const targetSquare = board.getSquare(move);
+                const targetSquare = board.getSquare({
+                    row: currentRow,
+                    column,
+                });
                 if (
-                    !targetSquare.empty &&
-                    targetSquare.piece!.color !== this.color &&
-                    targetSquare.piece instanceof Pawn
+                    targetSquare.empty ||
+                    targetSquare.piece!.color === this.color ||
+                    targetSquare.piece!.name !== ""
                 ) {
-                    const isCheck = checkKingInCheck
-                        ? false
-                        : this.searchForCheck(board, this.attackDirections, {
-                              row: move.row,
-                              column: move.column,
-                          });
-
-                    if (board.enPassantColumn === move.column) {
-                        if (!checkKingInCheck) {
-                            const king = board.getPieces(
-                                "K",
-                                this.color,
-                            )[0] as King;
-
-                            const capturedPawn = targetSquare.piece!;
-                            targetSquare.piece = null;
-                            targetSquare.empty = true;
-                            capturedPawn.captured = true;
-
-                            const putsOwnKingInCheck =
-                                king.checkIfMovePutsKingInCheck(
-                                    board,
-                                    {
-                                        column: move.column,
-                                        row: currentRow + direction,
-                                    },
-                                    this,
-                                );
-
-                            capturedPawn.captured = false;
-                            targetSquare.piece = capturedPawn;
-                            targetSquare.empty = false;
-
-                            if (!putsOwnKingInCheck) {
-                                validMovements.push({
-                                    column: move.column,
-                                    row: currentRow + direction,
-                                    type: "en_passant" as Movement["type"],
-                                    check: isCheck,
-                                });
-                            }
-                        } else {
-                            validMovements.push({
-                                column: move.column,
-                                row: currentRow + direction,
-                                type: "en_passant" as Movement["type"],
-                                check:
-                                    targetSquare.piece instanceof King
-                                        ? true
-                                        : isCheck,
-                            });
-                        }
-                    }
+                    continue;
                 }
+
+                // O peao capturado sai de uma casa que NAO e a de destino. Sem
+                // retira-lo da simulacao ele continua bloqueando a linha, e uma
+                // captura que expoe o proprio rei passa por legal.
+                const capturedPawn = targetSquare.piece!;
+                targetSquare.piece = null;
+                targetSquare.empty = true;
+                capturedPawn.captured = true;
+
+                push(currentRow + direction, column, "en_passant");
+
+                capturedPawn.captured = false;
+                targetSquare.piece = capturedPawn;
+                targetSquare.empty = false;
             }
         }
 

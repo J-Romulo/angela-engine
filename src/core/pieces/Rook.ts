@@ -27,8 +27,9 @@ export class Rook extends Piece {
         );
     }
 
-    validMovements(board: Board, checkKingInCheck = false) {
-        const validMovements = [];
+    validMovements(board: Board) {
+        const validMovements: Movement[] = [];
+        const king = board.getPieces("K", this.color)[0] as King;
 
         for (const { row: rowDir, column: colDir } of this.movementDirections) {
             let row = this.position.row + rowDir;
@@ -36,91 +37,36 @@ export class Rook extends Piece {
 
             while (row >= 0 && row < 8 && col >= 0 && col < 8) {
                 const possibleSquare = board.getSquare({ row, column: col });
+                const occupied = !possibleSquare.empty;
 
-                if (possibleSquare.empty) {
-                    const isCheck = checkKingInCheck
-                        ? false
-                        : this.searchForCheck(
-                              board,
-                              this.movementDirections,
-                              { row, column: col },
-                              true,
-                          );
-                    if (!checkKingInCheck) {
-                        const king = board.getPieces(
-                            "K",
-                            this.color,
-                        )[0] as King;
-                        const putsOwnKingInCheck =
-                            king.checkIfMovePutsKingInCheck(
-                                board,
-                                { row, column: col },
-                                this,
-                            );
-
-                        if (!putsOwnKingInCheck) {
-                            validMovements.push({
-                                row,
-                                column: col,
-                                type: "move" as Movement["type"],
-                                check: isCheck,
-                            });
-                        }
-                    } else {
-                        validMovements.push({
-                            row,
-                            column: col,
-                            type: "move" as Movement["type"],
-                            check: isCheck,
-                        });
-                    }
-                } else {
-                    if (possibleSquare.piece!.color !== this.color) {
-                        const isCheck = checkKingInCheck
-                            ? false
-                            : this.searchForCheck(
-                                  board,
-                                  this.movementDirections,
-                                  {
-                                      row,
-                                      column: col,
-                                  },
-                              );
-
-                        if (!checkKingInCheck) {
-                            const king = board.getPieces(
-                                "K",
-                                this.color,
-                            )[0] as King;
-                            const putsOwnKingInCheck =
-                                king.checkIfMovePutsKingInCheck(
-                                    board,
-                                    { row, column: col },
-                                    this,
-                                );
-
-                            if (!putsOwnKingInCheck) {
-                                validMovements.push({
-                                    row,
-                                    column: col,
-                                    type: "capture" as Movement["type"],
-                                    check: isCheck,
-                                });
-                            }
-                        } else {
-                            validMovements.push({
-                                row,
-                                column: col,
-                                type: "capture" as Movement["type"],
-                                check:
-                                    possibleSquare.piece instanceof King
-                                        ? true
-                                        : isCheck,
-                            });
-                        }
-                    }
+                if (occupied && possibleSquare.piece!.color === this.color) {
                     break;
                 }
+
+                const putsOwnKingInCheck = king.checkIfMovePutsKingInCheck(
+                    board,
+                    { row, column: col },
+                    this,
+                );
+
+                if (!putsOwnKingInCheck) {
+                    validMovements.push({
+                        row,
+                        column: col,
+                        type: (occupied
+                            ? "capture"
+                            : "move") as Movement["type"],
+                        check: this.searchForCheck(
+                            board,
+                            this.movementDirections,
+                            { row, column: col },
+                            true,
+                        ),
+                    });
+                }
+
+                // Peca adversaria e capturada, mas bloqueia o resto da linha.
+                if (occupied) break;
 
                 row += rowDir;
                 col += colDir;

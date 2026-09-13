@@ -1,13 +1,8 @@
-import { Board } from "../board/Board";
-import { King } from "./King";
+import type { Board } from "../board/Board";
 
 export type Position = {
     column: number;
     row: number;
-};
-
-export type LastPosition = Position & {
-    round: number;
 };
 
 export type Movement = Position & {
@@ -18,9 +13,6 @@ export type Movement = Position & {
         | "king_castling"
         | "queen_castling"
         | "promotion"
-        | "file_disambiguation"
-        | "rank_disambiguation"
-        | "full_disambiguation"
         | "promotion_capture";
 
     check?: boolean;
@@ -29,7 +21,6 @@ export type Movement = Position & {
 export abstract class Piece {
     color: "black" | "white";
     position: Position;
-    lastPosition?: LastPosition;
     name: string;
     movementsMade = 0;
     captured = false;
@@ -42,18 +33,14 @@ export abstract class Piece {
         this.name = name;
     }
 
-    move(newPosition: Position, round: number, falseMove = false) {
+    move(newPosition: Position, falseMove = false) {
         if (!falseMove) {
-            this.lastPosition = { ...this.position, round };
             this.calculateMovementsMade(this.position, newPosition);
         }
         this.position = newPosition;
     }
 
-    abstract validMovements(
-        board: Board,
-        checkKingInCheck?: boolean,
-    ): Movement[] | undefined;
+    abstract validMovements(board: Board): Movement[] | undefined;
 
     searchForCheck(
         board: Board,
@@ -84,7 +71,7 @@ export abstract class Piece {
 
                 if (
                     possibleSquare.piece!.color !== this.color &&
-                    possibleSquare.piece instanceof King
+                    possibleSquare.piece!.name === "K"
                 ) {
                     return true;
                 }

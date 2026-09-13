@@ -34,8 +34,9 @@ export class Knight extends Piece {
         );
     }
 
-    validMovements(board: Board, checkKingInCheck = false) {
-        const validMovements = [];
+    validMovements(board: Board) {
+        const validMovements: Movement[] = [];
+        const king = board.getPieces("K", this.color)[0] as King;
 
         for (const { row: rowDir, column: colDir } of this.movementJumps) {
             const row = this.position.row + rowDir;
@@ -44,80 +45,28 @@ export class Knight extends Piece {
             if (row > 7 || row < 0 || col > 7 || col < 0) continue;
 
             const possibleSquare = board.getSquare({ row, column: col });
+            const occupied = !possibleSquare.empty;
 
-            if (possibleSquare.empty) {
-                const isCheck = checkKingInCheck
-                    ? false
-                    : this.searchForCheck(board, this.movementJumps, {
-                          row,
-                          column: col,
-                      });
-                if (!checkKingInCheck) {
-                    const king = board.getPieces("K", this.color)[0] as King;
-                    const putsOwnKingInCheck = king.checkIfMovePutsKingInCheck(
-                        board,
-                        { row, column: col },
-                        this,
-                    );
+            if (occupied && possibleSquare.piece!.color === this.color)
+                continue;
 
-                    if (!putsOwnKingInCheck) {
-                        validMovements.push({
-                            row,
-                            column: col,
-                            type: "move" as Movement["type"],
-                            check: isCheck,
-                        });
-                    }
-                } else {
-                    validMovements.push({
-                        row,
-                        column: col,
-                        type: "move" as Movement["type"],
-                        check: isCheck,
-                    });
-                }
-            } else {
-                if (possibleSquare.piece!.color !== this.color) {
-                    const isCheck = checkKingInCheck
-                        ? false
-                        : this.searchForCheck(board, this.movementJumps, {
-                              row,
-                              column: col,
-                          });
+            const putsOwnKingInCheck = king.checkIfMovePutsKingInCheck(
+                board,
+                { row, column: col },
+                this,
+            );
 
-                    if (!checkKingInCheck) {
-                        const king = board.getPieces(
-                            "K",
-                            this.color,
-                        )[0] as King;
-                        const putsOwnKingInCheck =
-                            king.checkIfMovePutsKingInCheck(
-                                board,
-                                { row, column: col },
-                                this,
-                            );
+            if (putsOwnKingInCheck) continue;
 
-                        if (!putsOwnKingInCheck) {
-                            validMovements.push({
-                                row,
-                                column: col,
-                                type: "capture" as Movement["type"],
-                                check: isCheck,
-                            });
-                        }
-                    } else {
-                        validMovements.push({
-                            row,
-                            column: col,
-                            type: "capture" as Movement["type"],
-                            check:
-                                possibleSquare.piece instanceof King
-                                    ? true
-                                    : isCheck,
-                        });
-                    }
-                }
-            }
+            validMovements.push({
+                row,
+                column: col,
+                type: (occupied ? "capture" : "move") as Movement["type"],
+                check: this.searchForCheck(board, this.movementJumps, {
+                    row,
+                    column: col,
+                }),
+            });
         }
 
         return validMovements;
