@@ -83,13 +83,10 @@ export class SearchController {
             ttEntry,
         );
 
+        const movementController = new MovementController(board);
+
         for (const { piece, movement } of allValidMoves) {
-            const { board: boardCopy, key: newKey } = this.makeNewBoard(
-                board,
-                piece,
-                movement,
-            );
-            const movementController = new MovementController(boardCopy);
+            const undo = movementController.makeMovement(piece, movement);
 
             const opponentIsStuck = movementController.verifyNoValidMoves();
 
@@ -98,22 +95,24 @@ export class SearchController {
                 evaluation = movement.check ? MATE + depth : 0;
             } else if (depth <= 1) {
                 evaluation = EvaluationController.evaluatePosition(
-                    boardCopy,
+                    board,
                     turn,
-                    this.countMoves(boardCopy, turn),
-                    this.countMoves(boardCopy, opponent),
+                    this.countMoves(board, turn),
+                    this.countMoves(board, opponent),
                 );
             } else {
                 evaluation = -this.searchBestMove(
-                    boardCopy,
+                    board,
                     opponent,
                     -beta,
                     -alpha,
                     depth - 1,
                     transpositionTable,
-                    newKey,
+                    board.hash,
                 ).evaluation;
             }
+
+            movementController.unmakeMovement(undo);
 
             if (evaluation > bestPieceAndMove.evaluation) {
                 bestPieceAndMove.evaluation = evaluation;
@@ -191,20 +190,6 @@ export class SearchController {
         }
 
         return [...moves].sort((a, b) => scoreMove(b) - scoreMove(a));
-    }
-
-    public static makeNewBoard(
-        board: Board,
-        piece: Piece,
-        movement: Movement,
-    ): { board: Board; key: bigint } {
-        const boardCopy = board.clone();
-        const pieceCopy = boardCopy.getSquare(piece.position).piece;
-
-        const movementController = new MovementController(boardCopy);
-        movementController.applyMovement(pieceCopy!, movement);
-
-        return { board: boardCopy, key: boardCopy.hash };
     }
 
     private static countMoves(board: Board, color: "white" | "black"): number {
