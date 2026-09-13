@@ -4,11 +4,19 @@ import { MovementController } from "./MovementController";
 import { Movement, Piece, Position } from "./pieces/Piece";
 
 const MAX_DEPTH = 6;
-const MATE = 1_000_000;
+export const MATE = 1_000_000;
 const TT_MOVE_SCORE = 1000;
+
+export const MATE_THRESHOLD = MATE - 1000;
+
+const MAX_TT_ENTRIES = 1 << 20;
+
+type TTFlag = "exact" | "lower" | "upper";
 
 type TTEntry = {
     depth: number;
+    flag: TTFlag;
+    score: number;
     from: Position;
     move: Movement;
 };
@@ -36,28 +44,83 @@ const isNoisy = (movement: Movement) =>
     movement.type === "en_passant" ||
     movement.type.includes("promotion");
 
+export type SearchStats = {
+    nodes: number;
+    quiescenceNodes: number;
+    ttProbes: number;
+    ttHits: number;
+    ttCutoffs: number;
+};
+
 export class SearchController {
-    static search(board: Board, turn: "white" | "black") {
+    static stats: SearchStats = emptyStats();
+
+    static useTranspositionTable = true;
+
+    static maxDepth = MAX_DEPTH;
+
+    private static table = new Map<bigint, TTEntry>();
+
+    private static deadline = Infinity;
+    private static stopped = false;
+    private static clockCounter = 0;
+
+    static clearTable() {
+        this.table.clear();
+    }
+
+    private static outOfTime(): boolean {
+        if (this.stopped) return true;
+        if (this.deadline === Infinity) return false;
+        if (++this.clockCounter & 1023) return false;
+
+        if (Date.now() >= this.deadline) this.stopped = true;
+        return this.stopped;
+    }
+
+    private static evictOldest() {
+        const target = Math.floor(MAX_TT_ENTRIES / 4);
+        let removed = 0;
+
+        for (const key of this.table.keys()) {
+            this.table.delete(key);
+            if (++removed >= target) break;
+        }
+    }
+
+    static search(
+        board: Board,
+        turn: "white" | "black",
+        timeLimitMs = Infinity,
+    ) {
+        this.stats = emptyStats();
+        this.stopped = false;
+        this.clockCounter = 0;
+        this.deadline =
+            timeLimitMs === Infinity ? Infinity : Date.now() + timeLimitMs;
+
         let bestMove = {
             piece: null,
             move: null,
             evaluation: -Infinity,
         } as SearchResult;
 
-        const transpositionTable = new Map<bigint, TTEntry>();
-        const rootKey = board.hash;
-
-        for (let i = 1; i <= MAX_DEPTH; i++) {
-            bestMove = this.searchBestMove(
+        for (let i = 1; i <= this.maxDepth; i++) {
+            const result = this.searchBestMove(
                 board,
                 turn,
                 -Infinity,
                 +Infinity,
                 i,
-                transpositionTable,
-                rootKey,
+                0,
             );
+
+            if (this.stopped && i > 1) break;
+
+            bestMove = result;
+            if (this.stopped) break;
         }
+
         return bestMove;
     }
 
@@ -67,18 +130,45 @@ export class SearchController {
         alpha = -Infinity,
         beta = +Infinity,
         depth = MAX_DEPTH,
-        transpositionTable: Map<bigint, TTEntry> = new Map(),
-        rootKey: bigint = board.hash,
+        ply = 0,
     ): SearchResult {
+        this.stats.nodes++;
+
         const opponent = turn === "white" ? "black" : "white";
         const bestPieceAndMove: SearchResult = {
             piece: null,
             move: null,
             evaluation: -Infinity,
         };
+
+        if (this.stopped) return bestPieceAndMove;
         const currentPlayerPieces = board.getPieces(null, turn, false);
 
-        const ttEntry = transpositionTable.get(rootKey);
+        const alphaOriginal = alpha;
+        const key = board.hash;
+
+        this.stats.ttProbes++;
+        const ttEntry = this.useTranspositionTable
+            ? this.table.get(key)
+            : undefined;
+
+        if (ttEntry) {
+            this.stats.ttHits++;
+
+            if (ply > 0 && ttEntry.depth >= depth) {
+                const score = scoreFromTT(ttEntry.score, ply);
+
+                const usable =
+                    ttEntry.flag === "exact" ||
+                    (ttEntry.flag === "lower" && score >= beta) ||
+                    (ttEntry.flag === "upper" && score <= alpha);
+
+                if (usable) {
+                    this.stats.ttCutoffs++;
+                    return { piece: null, move: null, evaluation: score };
+                }
+            }
+        }
         const allValidMoves = this.orderMoves(
             currentPlayerPieces.flatMap((piece) =>
                 (board.movementsOf(piece) ?? []).map((movement) => ({
@@ -93,13 +183,17 @@ export class SearchController {
         const movementController = new MovementController(board);
 
         for (const { piece, movement } of allValidMoves) {
+            if (this.outOfTime()) break;
+
             const undo = movementController.makeMovement(piece, movement);
 
             const opponentIsStuck = movementController.verifyNoValidMoves();
 
             let evaluation: number;
             if (opponentIsStuck) {
-                evaluation = movementController.isInCheck() ? MATE + depth : 0;
+                evaluation = movementController.isInCheck()
+                    ? MATE - (ply + 1)
+                    : 0;
             } else if (depth <= 1) {
                 evaluation = -this.quiescence(
                     board,
@@ -107,7 +201,8 @@ export class SearchController {
                     -beta,
                     -alpha,
                     movementController,
-                    1,
+                    ply + 1,
+                    0,
                 );
             } else {
                 evaluation = -this.searchBestMove(
@@ -116,12 +211,13 @@ export class SearchController {
                     -beta,
                     -alpha,
                     depth - 1,
-                    transpositionTable,
-                    board.hash,
+                    ply + 1,
                 ).evaluation;
             }
 
             movementController.unmakeMovement(undo);
+
+            if (this.stopped) break;
 
             if (evaluation > bestPieceAndMove.evaluation) {
                 bestPieceAndMove.evaluation = evaluation;
@@ -139,15 +235,28 @@ export class SearchController {
         }
 
         if (
+            this.useTranspositionTable &&
+            !this.stopped &&
             bestPieceAndMove.piece &&
             bestPieceAndMove.move &&
             (!ttEntry || depth >= ttEntry.depth)
         ) {
-            transpositionTable.set(rootKey, {
-                move: bestPieceAndMove.move,
+            const flag: TTFlag =
+                bestPieceAndMove.evaluation <= alphaOriginal
+                    ? "upper"
+                    : bestPieceAndMove.evaluation >= beta
+                      ? "lower"
+                      : "exact";
+
+            this.table.set(key, {
                 depth,
+                flag,
+                score: scoreToTT(bestPieceAndMove.evaluation, ply),
+                move: bestPieceAndMove.move,
                 from: { ...bestPieceAndMove.piece.position },
             });
+
+            if (this.table.size > MAX_TT_ENTRIES) this.evictOldest();
         }
 
         return bestPieceAndMove;
@@ -160,7 +269,12 @@ export class SearchController {
         beta: number,
         controller: MovementController,
         ply: number,
+        quiescencePly: number,
     ): number {
+        this.stats.quiescenceNodes++;
+
+        if (this.stopped) return alpha;
+
         const opponent = color === "white" ? "black" : "white";
         const inCheck = controller.isInCheck(color);
 
@@ -174,7 +288,7 @@ export class SearchController {
 
             if (standPat >= beta) return beta;
             if (standPat > alpha) alpha = standPat;
-        } else if (ply >= QUIESCENCE_MAX_PLY) {
+        } else if (quiescencePly >= QUIESCENCE_MAX_PLY) {
             return EvaluationController.evaluatePosition(board, color);
         }
 
@@ -191,6 +305,8 @@ export class SearchController {
         }
 
         for (const { piece, movement } of this.orderMoves(moves, board)) {
+            if (this.outOfTime()) break;
+
             const undo = controller.makeMovement(piece, movement);
 
             const score = -this.quiescence(
@@ -200,9 +316,12 @@ export class SearchController {
                 -alpha,
                 controller,
                 ply + 1,
+                quiescencePly + 1,
             );
 
             controller.unmakeMovement(undo);
+
+            if (this.stopped) break;
 
             if (score >= beta) return beta;
             if (score > alpha) alpha = score;
@@ -258,4 +377,26 @@ export class SearchController {
 
         return [...moves].sort((a, b) => scoreMove(b) - scoreMove(a));
     }
+}
+
+function scoreToTT(score: number, ply: number): number {
+    if (score > MATE_THRESHOLD) return score + ply;
+    if (score < -MATE_THRESHOLD) return score - ply;
+    return score;
+}
+
+function scoreFromTT(score: number, ply: number): number {
+    if (score > MATE_THRESHOLD) return score - ply;
+    if (score < -MATE_THRESHOLD) return score + ply;
+    return score;
+}
+
+function emptyStats(): SearchStats {
+    return {
+        nodes: 0,
+        quiescenceNodes: 0,
+        ttProbes: 0,
+        ttHits: 0,
+        ttCutoffs: 0,
+    };
 }

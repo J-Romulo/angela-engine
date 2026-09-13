@@ -1,12 +1,23 @@
 import { Board } from "../core/board/Board";
 import promptSync from "prompt-sync";
 import { MovementController } from "../core/MovementController";
-import { SearchController } from "../core/SearchController";
+import {
+    MATE,
+    MATE_THRESHOLD,
+    SearchController,
+} from "../core/SearchController";
 import { OpeningBook } from "../core/OpeningBook";
 import { Position } from "../core/pieces/Piece";
 
 const squareName = (position: Position) =>
     `${"abcdefgh"[position.column]}${position.row + 1}`;
+
+const formatEvaluation = (score: number) => {
+    if (Math.abs(score) <= MATE_THRESHOLD) return (score / 100).toFixed(2);
+
+    const moves = Math.ceil((MATE - Math.abs(score)) / 2);
+    return `${score > 0 ? "" : "-"}M${moves}`;
+};
 
 // 50 moves without pawn movement or capture
 // insufficient material
@@ -180,7 +191,7 @@ export class GameController {
         const nextPosition = this.moveController.applyMovement(piece, move);
 
         console.log(
-            `Computer plays ${label} (${move.type}, eval ${(evaluation / 100).toFixed(2)}, ${elapsed}ms)`,
+            `Computer plays ${label} (${move.type}, eval ${formatEvaluation(evaluation)}, ${elapsed}ms)`,
         );
         this.prompt("Press Enter to continue...");
 
@@ -188,6 +199,7 @@ export class GameController {
     }
 
     newGame() {
+        SearchController.clearTable();
         this.board = new Board();
         this.moveController = new MovementController(this.board);
     }
