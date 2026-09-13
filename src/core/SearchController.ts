@@ -17,6 +17,16 @@ const FIRST_GROWTH_GUESS = 3;
 
 const MIN_SOFT_LIMIT_DEPTH = 3;
 
+/**
+ * Iteracao curta demais nao da razao confiavel - com a tabela quente as
+ * primeiras saem quase de graca, a razao explode e a estimativa manda parar
+ * com o orcamento quase inteiro na mesa.
+ */
+const MIN_TRUSTED_ITERATION_MS = 30;
+
+/** Abaixo desta fracao do orcamento sempre vale tentar mais uma. */
+const ALWAYS_TRY_RATIO = 0.3;
+
 type TTFlag = "exact" | "lower" | "upper";
 
 type TTEntry = {
@@ -138,15 +148,22 @@ export class SearchController {
             if (Math.abs(bestMove.evaluation) > MATE_THRESHOLD) break;
 
             const iterationMs = Date.now() - iterationStartedAt;
-            const growth = previousIterationMs
-                ? Math.min(
-                      MAX_GROWTH,
-                      Math.max(MIN_GROWTH, iterationMs / previousIterationMs),
-                  )
-                : FIRST_GROWTH_GUESS;
+            const growth =
+                previousIterationMs >= MIN_TRUSTED_ITERATION_MS
+                    ? Math.min(
+                          MAX_GROWTH,
+                          Math.max(
+                              MIN_GROWTH,
+                              iterationMs / previousIterationMs,
+                          ),
+                      )
+                    : FIRST_GROWTH_GUESS;
+
+            const spent = Date.now() - startedAt;
 
             if (
                 i >= MIN_SOFT_LIMIT_DEPTH &&
+                spent > timeLimitMs * ALWAYS_TRY_RATIO &&
                 iterationMs * growth > this.deadline - Date.now()
             ) {
                 break;
