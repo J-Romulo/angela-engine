@@ -184,7 +184,7 @@ export class GameController {
         );
         this.prompt("Press Enter to continue...");
 
-        return this.moveController.reportGameEnd(move, nextPosition);
+        return this.moveController.reportGameEnd(nextPosition);
     }
 
     newGame() {

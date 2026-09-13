@@ -92,7 +92,7 @@ export class SearchController {
 
             let evaluation: number;
             if (opponentIsStuck) {
-                evaluation = movement.check ? MATE + depth : 0;
+                evaluation = movementController.isInCheck() ? MATE + depth : 0;
             } else if (depth <= 1) {
                 evaluation = EvaluationController.evaluatePosition(
                     board,

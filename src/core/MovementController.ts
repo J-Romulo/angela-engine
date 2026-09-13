@@ -1,4 +1,5 @@
-import { Board } from "./board/Board";
+import { isSquareAttacked } from "./attacks";
+import { Board, PositionRecord } from "./board/Board";
 import { NotationValidator } from "./NotationValidator";
 import { Bishop } from "./pieces/Bishop";
 import { King } from "./pieces/King";
@@ -61,6 +62,8 @@ export type MoveUndo = {
     round: number;
 };
 
+export type GameStatus = "checkmate" | "stalemate" | "threefold" | "ongoing";
+
 export class MovementController {
     constructor(private board: Board) {
         this.board = board;
@@ -74,8 +77,9 @@ export class MovementController {
         const moveType = NotationValidator.getMoveType(move);
 
         if (moveType.includes("castling")) {
-            const { movement, position } = this.castlingMovement(moveType);
-            return this.reportGameEnd(movement, position);
+            this.board.clearMovementsCache();
+            this.castlingMovement(moveType);
+            return this.reportGameEnd(this.board.savePosition());
         }
 
         const { pieceSymbol, ...ambiguation } =
@@ -101,7 +105,7 @@ export class MovementController {
             getPromotionSymbol(move),
         );
 
-        return this.reportGameEnd(validMove, nextPosition);
+        return this.reportGameEnd(nextPosition);
     }
 
     makeMovement(
@@ -241,34 +245,49 @@ export class MovementController {
         return this.board.savePosition();
     }
 
-    reportGameEnd(
-        movement: Movement,
-        nextPosition: { string: string; valuation: number; repeated: number },
-    ): boolean {
-        if (movement.check) {
-            this.board.check = true;
-            if (this.verifyNoValidMoves()) {
+    isInCheck(color: "black" | "white" = this.board.turn): boolean {
+        const king = this.board.getPieces("K", color)[0];
+        if (!king) return false;
+
+        return isSquareAttacked(
+            this.board,
+            king.position,
+            color === "white" ? "black" : "white",
+        );
+    }
+
+    gameStatus(repetitions = 0): GameStatus {
+        if (this.verifyNoValidMoves()) {
+            return this.isInCheck() ? "checkmate" : "stalemate";
+        }
+
+        if (repetitions >= 3) return "threefold";
+
+        return "ongoing";
+    }
+
+    reportGameEnd(nextPosition: PositionRecord): boolean {
+        this.board.check = this.isInCheck();
+
+        const status = this.gameStatus(nextPosition.repeated);
+
+        switch (status) {
+            case "checkmate":
                 console.log(
-                    "Checkmate! Game over." +
+                    "Checkmate! Game over. " +
                         (this.board.turn === "white" ? "Black" : "White") +
                         " wins!",
                 );
                 return true;
-            }
-        } else {
-            if (this.verifyNoValidMoves()) {
+            case "stalemate":
                 console.log("Stalemate! Game over. It's a draw.");
                 return true;
-            }
-            this.board.check = false;
+            case "threefold":
+                console.log("Draw by threefold repetition! Game over.");
+                return true;
+            default:
+                return false;
         }
-
-        if (nextPosition.repeated >= 3) {
-            console.log("Draw by threefold repetition! Game over.");
-            return true;
-        }
-
-        return false;
     }
 
     getValidPieces(pieceType: string) {
