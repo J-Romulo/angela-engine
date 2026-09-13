@@ -2,45 +2,9 @@
 import { Movement } from "./pieces/Piece";
 
 export class NotationValidator {
-    // Basic square notation (e.g., e4, a1, h8)
-    static readonly SQUARE = /^[a-h][1-8]$/;
-
-    // Piece symbols (K=King, Q=Queen, R=Rook, B=Bishop, N=Knight, no symbol=Pawn)
-    static readonly PIECE = /^[KQRBN]?/;
-
-    // Normal piece movement (e.g., e4, Nf3, Qd1, Rxa8)
-    static readonly NORMAL_MOVE = /^[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8]$/;
-
-    // Capture notation (e.g., exd5, Nxf7, Qxd8+)
-    static readonly CAPTURE = /^[KQRBN]?[a-h]?[1-8]?x[a-h][1-8]$/;
-
     // Castling (O-O for kingside, O-O-O for queenside)
     static readonly KING_CASTLING = /^O-O?$/;
     static readonly QUEEN_CASTLING = /^O-O-O?$/;
-
-    // Pawn promotion (e.g., e8=Q, axb8=N+, d1=R#)
-    static readonly PROMOTION = /^[a-h][18]=[QRBN]$/;
-
-    // Pawn promotion with capture (e.g., exf8=Q+, axb1=N#)
-    static readonly PROMOTION_CAPTURE = /^[a-h]x[a-h][18]=[QRBN]$/;
-
-    // Check notation (+ at the end)
-    static readonly CHECK = /\+$/;
-
-    // Checkmate notation (# at the end)
-    static readonly CHECKMATE = /#$/;
-
-    // Complete move with optional check/checkmate (combines all above)
-    static readonly COMPLETE_MOVE =
-        /^(?:O-O(?:-O)?|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?)[\+#]?$/;
-
-    // Disambiguation patterns
-    static readonly FILE_DISAMBIGUATION = /^[KQRBN]?[a-h][a-h][1-8]$/; // e.g., Nbd2
-    static readonly RANK_DISAMBIGUATION = /^[KQRBN]?[1-8][a-h][1-8]$/; // e.g., N1f3
-    static readonly FULL_DISAMBIGUATION = /^[KQRBN]?[a-h][1-8][a-h][1-8]$/; // e.g., Nb1d2
-
-    // En passant (special pawn capture)
-    static readonly EN_PASSANT = /^[a-h]x[a-h][36]( e\.p\.)?$/;
 
     // Comprehensive pattern that matches most standard algebraic notation
     static readonly ALGEBRAIC_NOTATION =
@@ -75,25 +39,7 @@ export class NotationValidator {
             return "promotion";
         }
 
-        if (this.FILE_DISAMBIGUATION.test(move)) {
-            return "file_disambiguation";
-        }
-        if (this.RANK_DISAMBIGUATION.test(move)) {
-            return "rank_disambiguation";
-        }
-        if (this.FULL_DISAMBIGUATION.test(move)) {
-            return "full_disambiguation";
-        }
-
         return "move";
-    }
-
-    static isCheck(notation: string): boolean {
-        return this.CHECK.test(notation);
-    }
-
-    static isCheckmate(notation: string): boolean {
-        return this.CHECKMATE.test(notation);
     }
 
     static getDestinationSquare(notation: string): string | null {
