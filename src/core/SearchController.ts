@@ -11,8 +11,8 @@ const MAX_DEPTH = 64;
 
 const DEFAULT_TT_ENTRIES = 1 << 20;
 
-/** A proxima profundidade custa, grosso modo, o que a busca ja custou. */
-const ITERATION_GROWTH = 1.5;
+/** Mediana medida do custo da proxima profundidade sobre o ja gasto. */
+const ITERATION_GROWTH = 1.3;
 const MIN_SOFT_LIMIT_DEPTH = 3;
 
 const QUIESCENCE_MAX_PLY = 6;
