@@ -1,5 +1,4 @@
 import { createInterface } from "readline";
-import { GameController } from "./application/GameController";
 import { UciController } from "./application/UciController";
 
 function startUci() {
@@ -16,9 +15,15 @@ function startUci() {
     });
 }
 
+/** Sob demanda: o menu depende de prompt-sync, que o modo UCI nao precisa. */
+async function startCli() {
+    const { GameController } = await import("./application/GameController");
+    new GameController().start();
+}
+
 // Stdin sem terminal e como uma GUI de xadrez chama a engine.
 if (process.argv.includes("--uci") || !process.stdin.isTTY) {
     startUci();
 } else {
-    new GameController().start();
+    void startCli();
 }
