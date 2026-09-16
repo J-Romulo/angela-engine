@@ -11,6 +11,10 @@ function startUci() {
     input.on("line", (line) => {
         if (!controller.handle(line)) {
             input.close();
+            // Fechar a readline nao solta o handle do stdin: com a GUI segurando
+            // a ponta de escrita do pipe o EOF nunca chega, e sem EOF o processo
+            // sobrevive ao `quit`. O unref tira o stdin do event loop.
+            process.stdin.unref();
         }
     });
 }
