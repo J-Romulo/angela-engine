@@ -1,4 +1,4 @@
-import { prepareBoardFromPosition } from "../src/application/Perft";
+import { prepareBoardFromPosition } from "../src/core/fen";
 import { Board } from "../src/core/board/Board";
 import { GameStatus, MovementController } from "../src/core/MovementController";
 

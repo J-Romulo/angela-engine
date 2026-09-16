@@ -1,4 +1,4 @@
-import { prepareBoardFromPosition } from "../src/application/Perft";
+import { prepareBoardFromPosition } from "../src/core/fen";
 import { MovementController } from "../src/core/MovementController";
 import { MATE, SearchController } from "../src/core/SearchController";
 

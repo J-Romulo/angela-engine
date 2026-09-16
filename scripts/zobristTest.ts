@@ -1,6 +1,6 @@
 import { Board } from "../src/core/board/Board";
 import { MovementController } from "../src/core/MovementController";
-import { prepareBoardFromPosition } from "../src/application/Perft";
+import { prepareBoardFromPosition } from "../src/core/fen";
 
 const POSITIONS: [string, string][] = [
     ["inicial", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"],
