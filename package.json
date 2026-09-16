@@ -1,20 +1,27 @@
 {
   "name": "angela",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "start": "ts-node ./src/index.ts",
+    "uci": "ts-node ./src/index.ts --uci",
+    "build": "tsc -p tsconfig.build.json && ts-node ./scripts/copyAssets.ts",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "perft": "ts-node ./scripts/perftTest.ts",
     "zobrist": "ts-node ./scripts/zobristTest.ts",
     "check": "ts-node ./scripts/checkTest.ts",
-    "search": "ts-node ./scripts/searchTest.ts"
+    "search": "ts-node ./scripts/searchTest.ts",
+    "uci:test": "ts-node ./scripts/uciTest.ts"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "chess",
+    "engine",
+    "uci"
+  ],
+  "author": "J-Romulo",
   "license": "ISC",
-  "description": "",
+  "description": "Motor de xadrez em TypeScript, com interface de texto e UCI",
   "dependencies": {
     "prompt-sync": "^4.2.0",
     "ts-node": "^10.9.2",
