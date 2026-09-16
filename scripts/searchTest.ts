@@ -211,9 +211,9 @@ function poisonSuite() {
         const dirtyBoard = prepareBoardFromPosition(fen);
         const dirty = SearchController.search(dirtyBoard, dirtyBoard.turn);
 
-        const ok =
-            moveLabel(clean) === moveLabel(dirty) &&
-            clean.evaluation === dirty.evaluation;
+        // Valor diferente seria tabela envenenada; lance diferente entre
+        // avaliacoes iguais e so ordenacao, que o historico agora influencia.
+        const ok = clean.evaluation === dirty.evaluation;
         if (!ok) failed++;
 
         console.log(

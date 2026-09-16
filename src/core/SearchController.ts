@@ -3,29 +3,40 @@ import { EvaluationController } from "./EvaluationController";
 import { FIFTY_MOVE_LIMIT, MovementController } from "./MovementController";
 import { Movement, Piece, Position } from "./pieces/Piece";
 
-const MAX_DEPTH = 6;
 export const MATE = 1_000_000;
-const TT_MOVE_SCORE = 1000;
-
 export const MATE_THRESHOLD = MATE - 1000;
 
-const MAX_TT_ENTRIES = 1 << 20;
+/** Teto de seguranca: quem decide onde parar e o orcamento de tempo. */
+const MAX_DEPTH = 64;
 
-const MIN_GROWTH = 1.5;
-const MAX_GROWTH = 6;
-const FIRST_GROWTH_GUESS = 3;
+const DEFAULT_TT_ENTRIES = 1 << 20;
 
+/** A proxima profundidade custa, grosso modo, o que a busca ja custou. */
+const ITERATION_GROWTH = 1.5;
 const MIN_SOFT_LIMIT_DEPTH = 3;
 
-/**
- * Iteracao curta demais nao da razao confiavel - com a tabela quente as
- * primeiras saem quase de graca, a razao explode e a estimativa manda parar
- * com o orcamento quase inteiro na mesa.
- */
-const MIN_TRUSTED_ITERATION_MS = 30;
+const QUIESCENCE_MAX_PLY = 6;
 
-/** Abaixo desta fracao do orcamento sempre vale tentar mais uma. */
-const ALWAYS_TRY_RATIO = 0.3;
+/** Faixas de ordenacao, separadas para nao se misturarem. */
+const TT_MOVE_SCORE = 1_000_000;
+const NOISY_BASE = 100_000;
+const KILLER_SCORES = [90_000, 80_000];
+
+const CAPTURE_BASE = 100;
+const PROMOTION_BONUS = 90;
+const CASTLING_BONUS = 20;
+const CHECK_BONUS = 25;
+
+const KILLER_SLOTS = 2;
+const MAX_HEURISTIC_PLY = 128;
+
+/** Passando disso, a tabela de historico inteira e dividida ao meio. */
+const HISTORY_LIMIT = 1 << 14;
+
+/** Lance tardio e quieto e buscado mais raso; se surpreender, refaz cheio. */
+const LMR_MIN_DEPTH = 3;
+const LMR_FIRST_MOVES = 3;
+const LMR_DEEP_MOVE = 8;
 
 type TTFlag = "exact" | "lower" | "upper";
 
@@ -48,26 +59,20 @@ type SearchResult = {
     evaluation: number;
 };
 
-const CAPTURE_BASE = 100;
-const PROMOTION_BONUS = 90;
-const CASTLING_BONUS = 20;
-const CHECK_BONUS = 25;
+export type SearchStats = {
+    depth: number;
+    nodes: number;
+    quiescenceNodes: number;
+    ttHits: number;
+    ttCutoffs: number;
+};
 
-const QUIESCENCE_MAX_PLY = 6;
+const squareIndex = (position: Position) => position.row * 8 + position.column;
 
 const isNoisy = (movement: Movement) =>
     movement.type === "capture" ||
     movement.type === "en_passant" ||
     movement.type.includes("promotion");
-
-export type SearchStats = {
-    depth: number;
-    nodes: number;
-    quiescenceNodes: number;
-    ttProbes: number;
-    ttHits: number;
-    ttCutoffs: number;
-};
 
 export class SearchController {
     static stats: SearchStats = emptyStats();
@@ -77,6 +82,15 @@ export class SearchController {
     static maxDepth = MAX_DEPTH;
 
     private static table = new Map<bigint, TTEntry>();
+
+    /** Teto de entradas da tabela. O UCI expoe isto como a opcao Hash. */
+    static maxTableEntries = DEFAULT_TT_ENTRIES;
+
+    /** Indexado por ply: a mesma refutacao serve contra os lances irmaos. */
+    private static killers: (Movement | undefined)[][] = [];
+
+    /** Acumulado por cor, casa de origem e casa de destino. */
+    private static history = new Int32Array(2 * 64 * 64);
 
     private static deadline = Infinity;
     private static stopped = false;
@@ -96,7 +110,7 @@ export class SearchController {
     }
 
     private static evictOldest() {
-        const target = Math.floor(MAX_TT_ENTRIES / 4);
+        const target = Math.floor(this.maxTableEntries / 4);
         let removed = 0;
 
         for (const key of this.table.keys()) {
@@ -109,10 +123,16 @@ export class SearchController {
         board: Board,
         turn: "white" | "black",
         timeLimitMs = Infinity,
+        onIteration?: (
+            result: SearchResult,
+            depth: number,
+            elapsedMs: number,
+        ) => void,
     ) {
         this.stats = emptyStats();
         this.stopped = false;
         this.clockCounter = 0;
+        this.resetHeuristics();
 
         const startedAt = Date.now();
         this.deadline =
@@ -124,10 +144,7 @@ export class SearchController {
             evaluation: -Infinity,
         } as SearchResult;
 
-        let previousIterationMs = 0;
-
         for (let i = 1; i <= this.maxDepth; i++) {
-            const iterationStartedAt = Date.now();
             const result = this.searchBestMove(
                 board,
                 turn,
@@ -141,35 +158,21 @@ export class SearchController {
 
             bestMove = result;
             this.stats.depth = i;
+            onIteration?.(result, i, Date.now() - startedAt);
 
             if (this.stopped) break;
 
             // Mate forcado: aprofundar nao tem o que melhorar.
             if (Math.abs(bestMove.evaluation) > MATE_THRESHOLD) break;
 
-            const iterationMs = Date.now() - iterationStartedAt;
-            const growth =
-                previousIterationMs >= MIN_TRUSTED_ITERATION_MS
-                    ? Math.min(
-                          MAX_GROWTH,
-                          Math.max(
-                              MIN_GROWTH,
-                              iterationMs / previousIterationMs,
-                          ),
-                      )
-                    : FIRST_GROWTH_GUESS;
-
             const spent = Date.now() - startedAt;
 
             if (
                 i >= MIN_SOFT_LIMIT_DEPTH &&
-                spent > timeLimitMs * ALWAYS_TRY_RATIO &&
-                iterationMs * growth > this.deadline - Date.now()
+                spent * ITERATION_GROWTH > this.deadline - Date.now()
             ) {
                 break;
             }
-
-            previousIterationMs = iterationMs;
         }
 
         return bestMove;
@@ -194,24 +197,20 @@ export class SearchController {
 
         if (this.stopped) return bestPieceAndMove;
 
-        // Empate por 50 lances. So fora da raiz, que precisa devolver lance -
-        // e so depois do mate, ja descartado pelo no de cima, que testa
-        // `verifyNoValidMoves` antes de recursar.
+        // Fora da raiz apenas: a raiz precisa devolver um lance.
         if (ply > 0 && board.halfmoveClock >= FIFTY_MOVE_LIMIT) {
             return { piece: null, move: null, evaluation: 0 };
         }
 
-        // Uma repeticao ja basta dentro da arvore: se a linha leva a repetir,
-        // os dois lados podem insistir, e o resultado pratico e empate.
+        // Uma repeticao ja basta: se a linha leva a repetir, os dois lados
+        // podem insistir, e o resultado pratico e empate.
         if (ply > 0 && board.isRepetition()) {
             return { piece: null, move: null, evaluation: 0 };
         }
-        const currentPlayerPieces = board.getPieces(null, turn, false);
 
         const alphaOriginal = alpha;
         const key = board.hash;
 
-        this.stats.ttProbes++;
         const ttEntry = this.useTranspositionTable
             ? this.table.get(key)
             : undefined;
@@ -233,18 +232,26 @@ export class SearchController {
                 }
             }
         }
+
         const allValidMoves = this.orderMoves(
-            currentPlayerPieces.flatMap((piece) =>
+            board.getPieces(null, turn, false).flatMap((piece) =>
                 (board.movementsOf(piece) ?? []).map((movement) => ({
                     piece,
                     movement,
                 })),
             ),
             board,
+            turn,
+            ply,
             ttEntry,
         );
 
         const movementController = new MovementController(board);
+
+        // Um escaneamento por no: estar em xeque desliga a reducao.
+        const inCheck = movementController.isInCheck(turn);
+
+        let index = 0;
 
         for (const { piece, movement } of allValidMoves) {
             if (this.outOfTime()) break;
@@ -269,17 +276,38 @@ export class SearchController {
                     0,
                 );
             } else {
+                const reduction = lateMoveReduction(
+                    index,
+                    depth,
+                    movement,
+                    inCheck,
+                );
+
                 evaluation = -this.searchBestMove(
                     board,
                     opponent,
                     -beta,
                     -alpha,
-                    depth - 1,
+                    depth - 1 - reduction,
                     ply + 1,
                 ).evaluation;
+
+                // Surpreendeu: refaz cheio, para nao aceitar valor de busca
+                // rasa demais.
+                if (reduction > 0 && evaluation > alpha) {
+                    evaluation = -this.searchBestMove(
+                        board,
+                        opponent,
+                        -beta,
+                        -alpha,
+                        depth - 1,
+                        ply + 1,
+                    ).evaluation;
+                }
             }
 
             movementController.unmakeMovement(undo);
+            index++;
 
             if (this.stopped) break;
 
@@ -294,6 +322,11 @@ export class SearchController {
             }
 
             if (evaluation >= beta) {
+                // Captura ja tem ordenacao propria.
+                if (!isNoisy(movement)) {
+                    this.rememberCutoff(turn, piece, movement, ply, depth);
+                }
+
                 break;
             }
         }
@@ -320,7 +353,7 @@ export class SearchController {
                 from: { ...bestPieceAndMove.piece.position },
             });
 
-            if (this.table.size > MAX_TT_ENTRIES) this.evictOldest();
+            if (this.table.size > this.maxTableEntries) this.evictOldest();
         }
 
         return bestPieceAndMove;
@@ -345,8 +378,7 @@ export class SearchController {
         const inCheck = controller.isInCheck(color);
 
         if (!inCheck) {
-            // Piso do no: ninguem e obrigado a capturar. Captura so interessa
-            // se bater isto.
+            // Piso do no: ninguem e obrigado a capturar.
             const standPat = EvaluationController.evaluatePosition(
                 board,
                 color,
@@ -370,7 +402,12 @@ export class SearchController {
             return inCheck ? -(MATE - ply) : alpha;
         }
 
-        for (const { piece, movement } of this.orderMoves(moves, board)) {
+        for (const { piece, movement } of this.orderMoves(
+            moves,
+            board,
+            color,
+            ply,
+        )) {
             if (this.outOfTime()) break;
 
             const undo = controller.makeMovement(piece, movement);
@@ -396,26 +433,76 @@ export class SearchController {
         return alpha;
     }
 
+    /** Killers nao sobrevivem a busca; o historico sobrevive pela metade. */
+    private static resetHeuristics() {
+        this.killers = Array.from({ length: MAX_HEURISTIC_PLY }, () =>
+            new Array(KILLER_SLOTS).fill(undefined),
+        );
+
+        for (let i = 0; i < this.history.length; i++) this.history[i] >>= 1;
+    }
+
+    /** Chamado no corte em beta, so para lance quieto. */
+    private static rememberCutoff(
+        color: "black" | "white",
+        piece: Piece,
+        movement: Movement,
+        ply: number,
+        depth: number,
+    ) {
+        const side = color === "white" ? 0 : 1;
+        const index =
+            (side * 64 + squareIndex(piece.position)) * 64 +
+            squareIndex(movement);
+
+        this.history[index] += depth * depth;
+
+        if (this.history[index] > HISTORY_LIMIT) {
+            for (let i = 0; i < this.history.length; i++) this.history[i] >>= 1;
+        }
+
+        if (ply >= MAX_HEURISTIC_PLY) return;
+
+        const slots = this.killers[ply];
+        if (slots[0] && sameMove(slots[0], movement)) return;
+
+        for (let i = KILLER_SLOTS - 1; i > 0; i--) slots[i] = slots[i - 1];
+        slots[0] = movement;
+    }
+
     private static orderMoves(
         moves: ScoredMove[],
         board: Board,
+        color: "black" | "white",
+        ply: number,
         ttEntry?: TTEntry,
     ): ScoredMove[] {
+        const killers = ply < MAX_HEURISTIC_PLY ? this.killers[ply] : undefined;
+        const history = this.history;
+        const side = color === "white" ? 0 : 1;
+
         function isTtMove(move: ScoredMove): boolean {
             if (!ttEntry) return false;
             return (
                 move.piece.position.column === ttEntry.from.column &&
                 move.piece.position.row === ttEntry.from.row &&
-                move.movement.column === ttEntry.move.column &&
-                move.movement.row === ttEntry.move.row &&
-                move.movement.type === ttEntry.move.type
+                sameMove(ttEntry.move, move.movement)
             );
+        }
+
+        function killerRank(movement: Movement): number {
+            if (!killers) return -1;
+
+            for (let i = 0; i < killers.length; i++) {
+                const killer = killers[i];
+                if (killer && sameMove(killer, movement)) return i;
+            }
+
+            return -1;
         }
 
         function scoreMove(move: ScoredMove): number {
             if (isTtMove(move)) return TT_MOVE_SCORE;
-
-            let score = 0;
 
             const victim =
                 move.movement.type === "en_passant"
@@ -425,14 +512,31 @@ export class SearchController {
                           column: move.movement.column,
                       }).piece?.value ?? 0);
 
-            if (victim > 0) {
-                const attacker = move.piece.value || 10;
-                score += CAPTURE_BASE + victim * 10 - attacker;
+            const promotion = move.movement.type.includes("promotion");
+
+            if (victim > 0 || promotion) {
+                let score = NOISY_BASE;
+
+                if (victim > 0) {
+                    const attacker = move.piece.value || 10;
+                    score += CAPTURE_BASE + victim * 10 - attacker;
+                }
+                if (promotion) score += PROMOTION_BONUS;
+                if (move.movement.check) score += CHECK_BONUS;
+
+                return score;
             }
 
-            if (move.movement.type.includes("promotion")) {
-                score += PROMOTION_BONUS;
-            }
+            const rank = killerRank(move.movement);
+            if (rank >= 0) return KILLER_SCORES[rank];
+
+            // Lance quieto: sobra o que o historico aprendeu na partida.
+            let score =
+                history[
+                    (side * 64 + squareIndex(move.piece.position)) * 64 +
+                        squareIndex(move.movement)
+                ];
+
             if (move.movement.type.includes("castling")) {
                 score += CASTLING_BONUS;
             }
@@ -443,6 +547,27 @@ export class SearchController {
 
         return [...moves].sort((a, b) => scoreMove(b) - scoreMove(a));
     }
+}
+
+/** Quanto tirar da profundidade deste lance. Zero significa buscar cheio. */
+function lateMoveReduction(
+    index: number,
+    depth: number,
+    movement: Movement,
+    inCheck: boolean,
+): number {
+    if (depth < LMR_MIN_DEPTH) return 0;
+    if (index < LMR_FIRST_MOVES) return 0;
+    if (inCheck || movement.check || isNoisy(movement)) return 0;
+
+    const reduction = index >= LMR_DEEP_MOVE && depth >= 6 ? 2 : 1;
+
+    // A busca reduzida nunca pode cair abaixo de profundidade 1.
+    return Math.min(reduction, depth - 2);
+}
+
+function sameMove(a: Movement, b: Movement): boolean {
+    return a.row === b.row && a.column === b.column && a.type === b.type;
 }
 
 function scoreToTT(score: number, ply: number): number {
@@ -462,7 +587,6 @@ function emptyStats(): SearchStats {
         depth: 0,
         nodes: 0,
         quiescenceNodes: 0,
-        ttProbes: 0,
         ttHits: 0,
         ttCutoffs: 0,
     };
