@@ -79,6 +79,30 @@ export class MovementController {
     }
 
     executeMovement(move: string): boolean {
+        const resolved = this.resolveSan(move);
+
+        if (!resolved) {
+            throw new Error("Invalid move for the selected piece.");
+        }
+
+        const repetitions = this.applyMovement(
+            resolved.piece,
+            resolved.movement,
+            resolved.promotionSymbol,
+        );
+
+        return this.reportGameEnd(repetitions);
+    }
+
+    /**
+     * Resolve notacao algebrica sem aplicar nada e sem imprimir - o caminho
+     * UCI depende disso: escrita fora do protocolo derruba a GUI.
+     */
+    resolveSan(move: string): {
+        piece: Piece;
+        movement: Movement;
+        promotionSymbol: string;
+    } | null {
         if (!NotationValidator.isValidMove(move)) {
             throw new Error("Invalid move format.");
         }
@@ -86,9 +110,14 @@ export class MovementController {
         const moveType = NotationValidator.getMoveType(move);
 
         if (moveType.includes("castling")) {
-            this.board.clearMovementsCache();
-            this.castlingMovement(moveType);
-            return this.reportGameEnd(this.board.repetitionCount());
+            const king = this.board.getPieces("K", this.board.turn)[0];
+            const movement = (this.board.movementsOf(king) ?? []).find(
+                (candidate) => candidate.type === moveType,
+            );
+
+            if (!king || !movement) return null;
+
+            return { piece: king, movement, promotionSymbol: "Q" };
         }
 
         const { pieceSymbol, ...ambiguation } =
@@ -104,17 +133,13 @@ export class MovementController {
             ambiguation,
         );
 
-        if (!validMove || !validPiece) {
-            throw new Error("Invalid move for the selected piece.");
-        }
+        if (!validMove || !validPiece) return null;
 
-        const nextPosition = this.applyMovement(
-            validPiece,
-            validMove,
-            getPromotionSymbol(move),
-        );
-
-        return this.reportGameEnd(nextPosition);
+        return {
+            piece: validPiece,
+            movement: validMove,
+            promotionSymbol: getPromotionSymbol(move),
+        };
     }
 
     makeMovement(

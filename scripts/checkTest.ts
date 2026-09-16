@@ -82,7 +82,13 @@ const CASES: CheckCase[] = [
         expected: "insufficient_material",
     },
     {
-        name: "12. posicao normal segue em jogo",
+        name: "12. roque segue pelo mesmo caminho dos outros lances",
+        fen: "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+        move: "O-O",
+        expected: "ongoing",
+    },
+    {
+        name: "13. posicao normal segue em jogo",
         fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
         move: "e4",
         expected: "ongoing",
