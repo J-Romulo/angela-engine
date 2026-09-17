@@ -31,9 +31,16 @@ const DEFAULT_BUDGET_MS = 3000;
 /** Entradas da tabela por MB pedido na opcao Hash. */
 const ENTRIES_PER_MB = 8192;
 
-/** So a abertura ganha tempo extra: o livro cobre uns cinco lances. */
-const OPENING_LAST_MOVE = 20;
-const OPENING_FACTOR = 1.3;
+/**
+ * O tempo rende mais tarde: com o tabuleiro cheio a iteracao seguinte custa de
+ * duas a quatro vezes a anterior, e a avaliacao tem pouco a dizer sobre posicao
+ * quieta. Esvaziado, o crescimento cai para perto de 1,3x e cada lance decide
+ * material.
+ */
+const EARLY_LAST_MOVE = 10;
+const MIDDLE_LAST_MOVE = 30;
+const MIDDLE_FACTOR = 1.2;
+const LATE_FACTOR = 1.5;
 
 export class UciController {
     private board = new Board();
@@ -206,17 +213,23 @@ export class UciController {
     private phaseFactor(): number {
         const move = Math.ceil(this.board.round / 2);
 
-        return move <= OPENING_LAST_MOVE ? OPENING_FACTOR : 1;
+        if (move <= EARLY_LAST_MOVE) return 1;
+
+        return move <= MIDDLE_LAST_MOVE ? MIDDLE_FACTOR : LATE_FACTOR;
     }
 
     private budgetFor(
         tokens: ReturnType<typeof readTokens>,
         turn: "black" | "white",
     ): number {
-        if (tokens.movetime) return tokens.movetime;
+        // A busca so olha o relogio a cada mil nos e passa do prazo: o desconto
+        // mantem o lance dentro do `movetime` pedido.
+        if (tokens.movetime !== undefined) {
+            return Math.max(MIN_BUDGET_MS, tokens.movetime - OVERHEAD_MS);
+        }
 
         const remaining = turn === "white" ? tokens.wtime : tokens.btime;
-        if (!remaining) return DEFAULT_BUDGET_MS;
+        if (remaining === undefined) return DEFAULT_BUDGET_MS;
 
         const increment = (turn === "white" ? tokens.winc : tokens.binc) ?? 0;
         const movesToGo = tokens.movestogo ?? ASSUMED_MOVES_TO_GO;

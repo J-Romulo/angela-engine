@@ -1,6 +1,10 @@
 import { prepareBoardFromPosition } from "../src/core/fen";
 import { MovementController } from "../src/core/MovementController";
-import { MATE, SearchController } from "../src/core/SearchController";
+import {
+    MATE,
+    MATE_THRESHOLD,
+    SearchController,
+} from "../src/core/SearchController";
 
 const DEPTH = Number(process.argv[2] ?? 4);
 
@@ -155,9 +159,16 @@ function timeSuite() {
             const depth = SearchController.stats.depth;
 
             const inBudget = elapsed <= budget * 1.3 + 100;
+
+            // Sobrar orcamento tambem e defeito: sem mate a vista, tem que
+            // abrir outra profundidade em vez de devolver o lance cedo.
+            const usedEnough =
+                Math.abs(result.evaluation) > MATE_THRESHOLD ||
+                elapsed >= budget * 0.5;
+
             const hasMove = result.move !== null && result.piece !== null;
             const intact = board.hash === hashBefore;
-            const ok = inBudget && hasMove && intact;
+            const ok = inBudget && usedEnough && hasMove && intact;
 
             if (!ok) failed++;
 
@@ -165,6 +176,7 @@ function timeSuite() {
                 `${ok ? "OK    " : "FALHOU"}  ${name.padEnd(15)}` +
                     ` orcamento ${String(budget).padStart(4)}ms` +
                     ` gastou ${String(elapsed).padStart(5)}ms` +
+                    ` (${String(Math.round((elapsed / budget) * 100)).padStart(3)}%)` +
                     ` depth ${String(depth).padStart(2)}` +
                     `  lance ${hasMove ? moveLabel(result).padEnd(9) : "NENHUM   "}` +
                     ` tabuleiro ${intact ? "intacto" : "CORROMPIDO"}`,

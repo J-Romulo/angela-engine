@@ -11,8 +11,11 @@
     "perft": "ts-node ./scripts/perftTest.ts",
     "zobrist": "ts-node ./scripts/zobristTest.ts",
     "check": "ts-node ./scripts/checkTest.ts",
+    "eval": "ts-node ./scripts/evalTest.ts",
     "search": "ts-node ./scripts/searchTest.ts",
-    "uci:test": "ts-node ./scripts/uciTest.ts"
+    "uci:test": "ts-node ./scripts/uciTest.ts",
+    "opt": "ts-node ./scripts/optBench.ts",
+    "match": "ts-node ./scripts/matchTest.ts"
   },
   "keywords": [
     "chess",

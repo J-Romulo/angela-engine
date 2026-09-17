@@ -11,11 +11,23 @@ const MAX_DEPTH = 64;
 
 const DEFAULT_TT_ENTRIES = 1 << 20;
 
-/** Mediana medida do custo da proxima profundidade sobre o ja gasto. */
-const ITERATION_GROWTH = 1.3;
+/**
+ * Fracao do orcamento abaixo da qual ainda vale abrir outra profundidade.
+ * Prever o custo da proxima iteracao erra demais - a razao medida vai de 0,5 a
+ * 3,9 - e a iteracao cortada no meio nao custa nada.
+ */
+const SOFT_LIMIT_FRACTION = 0.6;
 const MIN_SOFT_LIMIT_DEPTH = 3;
 
 const QUIESCENCE_MAX_PLY = 6;
+
+const PAWN_UNIT = 100;
+
+/** Valor da dama menos o do peao: o que a promocao acrescenta. */
+const PROMOTION_GAIN = 8 * PAWN_UNIT;
+
+/** Folga do delta pruning: o que a avaliacao ganha sem ser por captura. */
+const DELTA_MARGIN = 2 * PAWN_UNIT;
 
 /** Faixas de ordenacao, separadas para nao se misturarem. */
 const TT_MOVE_SCORE = 1_000_000;
@@ -79,6 +91,9 @@ export class SearchController {
 
     static useTranspositionTable = true;
 
+    /** Desligavel para medicao: o corte muda o custo e pode mudar o valor. */
+    static useDeltaPruning = true;
+
     static maxDepth = MAX_DEPTH;
 
     private static table = new Map<bigint, TTEntry>();
@@ -98,6 +113,10 @@ export class SearchController {
 
     static clearTable() {
         this.table.clear();
+
+        // O cache nao envelhece, mas partida nova comeca fria: sem isto, metade
+        // do trabalho anterior fica de pe e a medicao mede a posicao anterior.
+        EvaluationController.clearCache();
     }
 
     private static outOfTime(): boolean {
@@ -154,7 +173,17 @@ export class SearchController {
                 0,
             );
 
-            if (this.stopped && i > 1) break;
+            // Iteracao cortada no meio: o parcial vale quando supera o que ja
+            // havia, porque a raiz so registra lance que terminou de buscar.
+            if (this.stopped && i > 1) {
+                if (result.piece && result.evaluation > bestMove.evaluation) {
+                    bestMove = result;
+                    this.stats.depth = i;
+                    onIteration?.(result, i, Date.now() - startedAt);
+                }
+
+                break;
+            }
 
             bestMove = result;
             this.stats.depth = i;
@@ -169,7 +198,7 @@ export class SearchController {
 
             if (
                 i >= MIN_SOFT_LIMIT_DEPTH &&
-                spent * ITERATION_GROWTH > this.deadline - Date.now()
+                spent > timeLimitMs * SOFT_LIMIT_FRACTION
             ) {
                 break;
             }
@@ -377,12 +406,11 @@ export class SearchController {
         const opponent = color === "white" ? "black" : "white";
         const inCheck = controller.isInCheck(color);
 
+        let standPat = -Infinity;
+
         if (!inCheck) {
             // Piso do no: ninguem e obrigado a capturar.
-            const standPat = EvaluationController.evaluatePosition(
-                board,
-                color,
-            );
+            standPat = EvaluationController.evaluatePosition(board, color);
 
             if (standPat >= beta) return beta;
             if (standPat > alpha) alpha = standPat;
@@ -409,6 +437,18 @@ export class SearchController {
             ply,
         )) {
             if (this.outOfTime()) break;
+
+            // Delta pruning: captura que nem de graca alcanca alpha nao muda o
+            // no. Fora em xeque e em lance que da xeque, onde o ganho nao esta
+            // no material.
+            if (
+                this.useDeltaPruning &&
+                !inCheck &&
+                !movement.check &&
+                standPat + captureGain(board, movement) + DELTA_MARGIN < alpha
+            ) {
+                continue;
+            }
 
             const undo = controller.makeMovement(piece, movement);
 
@@ -564,6 +604,24 @@ function lateMoveReduction(
 
     // A busca reduzida nunca pode cair abaixo de profundidade 1.
     return Math.min(reduction, depth - 2);
+}
+
+/**
+ * Melhor caso material do lance, em centipeoes. Otimista de proposito: o delta
+ * pruning so pode cortar o que nem assim chega em alpha.
+ */
+function captureGain(board: Board, movement: Movement): number {
+    const target = board.getSquare({
+        row: movement.row,
+        column: movement.column,
+    });
+
+    const victim =
+        movement.type === "en_passant" ? 1 : (target.piece?.value ?? 0);
+
+    const promotion = movement.type.includes("promotion") ? PROMOTION_GAIN : 0;
+
+    return victim * PAWN_UNIT + promotion;
 }
 
 function sameMove(a: Movement, b: Movement): boolean {
