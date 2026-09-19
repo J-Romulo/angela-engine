@@ -3,7 +3,7 @@ import { King } from "./King";
 import { Movement, Piece } from "./Piece";
 
 export class Queen extends Piece {
-    value = 9;
+    value = 9.75;
 
     // prettier-ignore
     static readonly TABLE: readonly number[] = [
