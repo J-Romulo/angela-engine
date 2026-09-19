@@ -1,11 +1,11 @@
-import { Board } from "./board/Board";
-import { Bishop } from "./pieces/Bishop";
-import { King } from "./pieces/King";
-import { Knight } from "./pieces/Knight";
-import { Pawn } from "./pieces/Pawn";
-import { Piece } from "./pieces/Piece";
-import { Queen } from "./pieces/Queen";
-import { Rook } from "./pieces/Rook";
+import { Board } from "../chess/board/Board";
+import { Bishop } from "../chess/pieces/Bishop";
+import { King } from "../chess/pieces/King";
+import { Knight } from "../chess/pieces/Knight";
+import { Pawn } from "../chess/pieces/Pawn";
+import { Piece } from "../chess/pieces/Piece";
+import { Queen } from "../chess/pieces/Queen";
+import { Rook } from "../chess/pieces/Rook";
 
 const PAWN_UNIT = 100;
 
@@ -20,14 +20,8 @@ const TABLES: Record<string, readonly number[]> = {
     K: King.TABLE,
 };
 
-/**
- * Centipeoes por casa segura alcancada. Baixos porque a tabela de posicao ja
- * codifica parte da mobilidade. A dama fica em zero: raios longos, o trecho
- * mais caro da contagem, e sinal fraco - dama ativa e dama exposta se parecem.
- */
 const MOBILITY: Record<string, number> = { N: 3, B: 4, R: 2, Q: 0 };
 
-/** Pares (linha, coluna) planos: lidos milhoes de vezes por busca. */
 const KNIGHT_JUMPS = [2, 1, 2, -1, -2, 1, -2, -1, 1, 2, 1, -2, -1, 2, -1, -2];
 
 // prettier-ignore
@@ -37,15 +31,9 @@ const RAYS: Record<string, readonly number[]> = {
     Q: [1, 1, 1, -1, -1, 1, -1, -1, 1, 0, -1, 0, 0, 1, 0, -1],
 };
 
-/** Casas atacadas por peao, uma por cor. Reaproveitadas: alocar sai caro. */
 const UNSAFE_WHITE = new Uint8Array(64);
 const UNSAFE_BLACK = new Uint8Array(64);
 
-/**
- * Cache indexado pelo hash Zobrist. A avaliacao e funcao pura da posicao, entao
- * a entrada nunca envelhece. Vetores planos, e nao um `Map`: 13 bytes por
- * entrada contra os mais de 200 que a tabela de transposicao mostrou custar.
- */
 const CACHE_BITS = 20;
 const CACHE_SIZE = 1 << CACHE_BITS;
 const CACHE_MASK = BigInt(CACHE_SIZE - 1);
@@ -53,7 +41,6 @@ const CACHE_MASK = BigInt(CACHE_SIZE - 1);
 const CACHE_KEYS = new BigUint64Array(CACHE_SIZE);
 const CACHE_SCORES = new Int32Array(CACHE_SIZE);
 
-/** Hash zero e valido: sem esta marca, a posicao 0 leria lixo como acerto. */
 const CACHE_FILLED = new Uint8Array(CACHE_SIZE);
 
 export type EvaluationStats = {
@@ -64,14 +51,12 @@ export type EvaluationStats = {
 export class EvaluationController {
     static stats: EvaluationStats = { computed: 0, cacheHits: 0 };
 
-    /** Desligavel para medicao: o cache muda o custo, nunca o valor. */
     static useCache = true;
 
     static resetStats() {
         this.stats = { computed: 0, cacheHits: 0 };
     }
 
-    /** So medicao e teste precisam: a entrada nao envelhece. */
     static clearCache() {
         CACHE_FILLED.fill(0);
     }
@@ -105,13 +90,11 @@ export class EvaluationController {
     }
 }
 
-/** Sempre do ponto de vista das brancas - e o que o cache guarda. */
 function whiteScore(board: Board): number {
     if (board.hasInsufficientMaterial()) return 0;
 
     const endgame = isEndgame(board);
 
-    // Montadas antes das duas contagens: cada lado le a tabela do outro.
     markPawnAttacks(board.whitePawns, UNSAFE_WHITE, 1);
     markPawnAttacks(board.blackPawns, UNSAFE_BLACK, -1);
 
@@ -126,8 +109,6 @@ function score(
     const white = color === "white";
     const unsafe = white ? UNSAFE_BLACK : UNSAFE_WHITE;
 
-    // Lidos direto, sem getPieces: filtrar e concatenar alocaria dois vetores
-    // por avaliacao.
     const pieces = white ? board.whitePieces : board.blackPieces;
     const pawns = white ? board.whitePawns : board.blackPawns;
 
@@ -151,9 +132,6 @@ function sum(
 
         const { row, column } = piece.position;
 
-        // As tabelas valem para as brancas, com a oitava fileira na primeira
-        // linha. As pretas leem espelhado na vertical: peao preto na fileira 2
-        // esta tao perto de promover quanto peao branco na 7.
         const index = white ? (7 - row) * 8 + column : row * 8 + column;
 
         const table =
@@ -170,10 +148,6 @@ function sum(
     return total;
 }
 
-/**
- * Marca as casas defendidas por peao da cor: casa guardada por peao nao e
- * mobilidade de verdade para uma peca maior, que nunca vai trocar de graca.
- */
 function markPawnAttacks(
     pawns: Piece[],
     map: Uint8Array,
@@ -195,17 +169,9 @@ function markPawnAttacks(
     }
 }
 
-/**
- * Casas seguras que a peca alcanca, sem verificar legalidade: conferir cravada
- * e xeque custaria uma busca por casa, e erra pouco. Peao e rei ficam de fora -
- * o peao ja entra pela tabela de posicao, e rei com muitas casas livres e rei
- * exposto.
- */
 function mobility(board: Board, piece: Piece, unsafe: Uint8Array): number {
     const name = piece.name;
 
-    // Peso zero sai antes de andar qualquer raio, em vez de pagar a contagem
-    // para multiplicar por zero depois.
     const bonus = MOBILITY[name];
     if (!bonus) return 0;
 
@@ -249,7 +215,6 @@ function mobility(board: Board, piece: Piece, unsafe: Uint8Array): number {
             if (target !== null && target.color === color) break;
             if (unsafe[row * 8 + column] === 0) reached++;
 
-            // Peca adversaria conta como casa alcancada, mas fecha a linha.
             if (target !== null) break;
 
             row += rowStep;

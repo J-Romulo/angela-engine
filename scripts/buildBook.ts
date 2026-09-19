@@ -1,10 +1,10 @@
 import { createReadStream, writeFileSync } from "fs";
 import { createInterface } from "readline";
-import { Board } from "../src/core/board/Board";
-import { MovementController } from "../src/core/MovementController";
+import { Board } from "../src/core/chess/board/Board";
+import { MovementController } from "../src/core/chess/Movement";
 
 const PGN_FILE = process.argv[2] ?? "games.pgn";
-const OUT_FILE = process.argv[3] ?? "src/core/opening-book.json";
+const OUT_FILE = process.argv[3] ?? "src/core/engine/opening-book.json";
 const MAX_PLIES = Number(process.argv[4] ?? 10);
 const MIN_GAMES = Number(process.argv[5] ?? 20);
 const MAX_GAMES = Number(process.argv[6] ?? Infinity);

@@ -2,9 +2,9 @@ import { ChildProcessWithoutNullStreams, spawn } from "child_process";
 import { writeFileSync } from "fs";
 import { createInterface } from "readline";
 
-import { Board } from "../src/core/board/Board";
-import { parseLan } from "../src/core/lan";
-import { MovementController } from "../src/core/MovementController";
+import { Board } from "../src/core/chess/board/Board";
+import { parseLan } from "../src/core/chess/notation/Lan";
+import { MovementController } from "../src/core/chess/Movement";
 
 /**
  * Match entre duas compilacoes da engine, por UCI. Processos separados porque

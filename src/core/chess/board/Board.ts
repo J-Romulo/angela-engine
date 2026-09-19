@@ -13,7 +13,7 @@ import {
     PIECE_SQUARE,
     pieceSquareIndex,
     TURN,
-} from "../zobrist";
+} from "../Zobrist";
 
 export type Square = {
     color: "black" | "white";

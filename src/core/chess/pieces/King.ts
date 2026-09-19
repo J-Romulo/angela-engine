@@ -1,5 +1,5 @@
 import { Board } from "../board/Board";
-import { isSquareAttacked } from "../attacks";
+import { isSquareAttacked } from "../Attacks";
 import { Movement, Piece, Position } from "./Piece";
 
 const rookDirections = [

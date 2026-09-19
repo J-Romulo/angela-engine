@@ -1,6 +1,6 @@
 import { readFileSync } from "fs";
 import { join } from "path";
-import { Board } from "./board/Board";
+import { Board } from "../chess/board/Board";
 
 type Book = Record<string, Record<string, number>>;
 

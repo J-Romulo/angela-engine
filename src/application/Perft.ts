@@ -1,6 +1,6 @@
-import { Board } from "../core/board/Board";
-import { prepareBoardFromPosition } from "../core/fen";
-import { MovementController } from "../core/MovementController";
+import { Board } from "../core/chess/board/Board";
+import { prepareBoardFromPosition } from "../core/chess/notation/Fen";
+import { MovementController } from "../core/chess/Movement";
 
 export function perft(depth: number, position: string): number {
     return countNodes(prepareBoardFromPosition(position), depth);

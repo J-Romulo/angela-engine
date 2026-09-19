@@ -1,6 +1,6 @@
-import { Board } from "../src/core/board/Board";
-import { MovementController } from "../src/core/MovementController";
-import { prepareBoardFromPosition } from "../src/core/fen";
+import { Board } from "../src/core/chess/board/Board";
+import { MovementController } from "../src/core/chess/Movement";
+import { prepareBoardFromPosition } from "../src/core/chess/notation/Fen";
 
 const POSITIONS: [string, string][] = [
     ["inicial", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"],

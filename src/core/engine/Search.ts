@@ -1,21 +1,15 @@
-import { Board } from "./board/Board";
-import { EvaluationController } from "./EvaluationController";
-import { FIFTY_MOVE_LIMIT, MovementController } from "./MovementController";
-import { Movement, Piece, Position } from "./pieces/Piece";
+import { Board } from "../chess/board/Board";
+import { EvaluationController } from "./Evaluation";
+import { FIFTY_MOVE_LIMIT, MovementController } from "../chess/Movement";
+import { Movement, Piece, Position } from "../chess/pieces/Piece";
 
 export const MATE = 1_000_000;
 export const MATE_THRESHOLD = MATE - 1000;
 
-/** Teto de seguranca: quem decide onde parar e o orcamento de tempo. */
-const MAX_DEPTH = 64;
+const MAX_DEPTH = 12;
 
 const DEFAULT_TT_ENTRIES = 1 << 20;
 
-/**
- * Fracao do orcamento abaixo da qual ainda vale abrir outra profundidade.
- * Prever o custo da proxima iteracao erra demais - a razao medida vai de 0,5 a
- * 3,9 - e a iteracao cortada no meio nao custa nada.
- */
 const SOFT_LIMIT_FRACTION = 0.6;
 const MIN_SOFT_LIMIT_DEPTH = 3;
 
@@ -23,13 +17,10 @@ const QUIESCENCE_MAX_PLY = 6;
 
 const PAWN_UNIT = 100;
 
-/** Valor da dama menos o do peao: o que a promocao acrescenta. */
 const PROMOTION_GAIN = 8 * PAWN_UNIT;
 
-/** Folga do delta pruning: o que a avaliacao ganha sem ser por captura. */
 const DELTA_MARGIN = 2 * PAWN_UNIT;
 
-/** Faixas de ordenacao, separadas para nao se misturarem. */
 const TT_MOVE_SCORE = 1_000_000;
 const NOISY_BASE = 100_000;
 const KILLER_SCORES = [90_000, 80_000];
@@ -42,10 +33,8 @@ const CHECK_BONUS = 25;
 const KILLER_SLOTS = 2;
 const MAX_HEURISTIC_PLY = 128;
 
-/** Passando disso, a tabela de historico inteira e dividida ao meio. */
 const HISTORY_LIMIT = 1 << 14;
 
-/** Lance tardio e quieto e buscado mais raso; se surpreender, refaz cheio. */
 const LMR_MIN_DEPTH = 3;
 const LMR_FIRST_MOVES = 3;
 const LMR_DEEP_MOVE = 8;
@@ -65,7 +54,7 @@ type ScoredMove = {
     movement: Movement;
 };
 
-type SearchResult = {
+export type SearchResult = {
     piece: Piece | null;
     move: Movement | null;
     evaluation: number;
@@ -91,20 +80,16 @@ export class SearchController {
 
     static useTranspositionTable = true;
 
-    /** Desligavel para medicao: o corte muda o custo e pode mudar o valor. */
     static useDeltaPruning = true;
 
     static maxDepth = MAX_DEPTH;
 
     private static table = new Map<bigint, TTEntry>();
 
-    /** Teto de entradas da tabela. O UCI expoe isto como a opcao Hash. */
     static maxTableEntries = DEFAULT_TT_ENTRIES;
 
-    /** Indexado por ply: a mesma refutacao serve contra os lances irmaos. */
     private static killers: (Movement | undefined)[][] = [];
 
-    /** Acumulado por cor, casa de origem e casa de destino. */
     private static history = new Int32Array(2 * 64 * 64);
 
     private static deadline = Infinity;
@@ -114,8 +99,6 @@ export class SearchController {
     static clearTable() {
         this.table.clear();
 
-        // O cache nao envelhece, mas partida nova comeca fria: sem isto, metade
-        // do trabalho anterior fica de pe e a medicao mede a posicao anterior.
         EvaluationController.clearCache();
     }
 
@@ -173,8 +156,6 @@ export class SearchController {
                 0,
             );
 
-            // Iteracao cortada no meio: o parcial vale quando supera o que ja
-            // havia, porque a raiz so registra lance que terminou de buscar.
             if (this.stopped && i > 1) {
                 if (result.piece && result.evaluation > bestMove.evaluation) {
                     bestMove = result;
@@ -191,7 +172,6 @@ export class SearchController {
 
             if (this.stopped) break;
 
-            // Mate forcado: aprofundar nao tem o que melhorar.
             if (Math.abs(bestMove.evaluation) > MATE_THRESHOLD) break;
 
             const spent = Date.now() - startedAt;
@@ -226,13 +206,10 @@ export class SearchController {
 
         if (this.stopped) return bestPieceAndMove;
 
-        // Fora da raiz apenas: a raiz precisa devolver um lance.
         if (ply > 0 && board.halfmoveClock >= FIFTY_MOVE_LIMIT) {
             return { piece: null, move: null, evaluation: 0 };
         }
 
-        // Uma repeticao ja basta: se a linha leva a repetir, os dois lados
-        // podem insistir, e o resultado pratico e empate.
         if (ply > 0 && board.isRepetition()) {
             return { piece: null, move: null, evaluation: 0 };
         }
@@ -277,7 +254,6 @@ export class SearchController {
 
         const movementController = new MovementController(board);
 
-        // Um escaneamento por no: estar em xeque desliga a reducao.
         const inCheck = movementController.isInCheck(turn);
 
         let index = 0;
@@ -321,8 +297,6 @@ export class SearchController {
                     ply + 1,
                 ).evaluation;
 
-                // Surpreendeu: refaz cheio, para nao aceitar valor de busca
-                // rasa demais.
                 if (reduction > 0 && evaluation > alpha) {
                     evaluation = -this.searchBestMove(
                         board,
@@ -351,7 +325,6 @@ export class SearchController {
             }
 
             if (evaluation >= beta) {
-                // Captura ja tem ordenacao propria.
                 if (!isNoisy(movement)) {
                     this.rememberCutoff(turn, piece, movement, ply, depth);
                 }
@@ -409,7 +382,6 @@ export class SearchController {
         let standPat = -Infinity;
 
         if (!inCheck) {
-            // Piso do no: ninguem e obrigado a capturar.
             standPat = EvaluationController.evaluatePosition(board, color);
 
             if (standPat >= beta) return beta;
@@ -438,9 +410,6 @@ export class SearchController {
         )) {
             if (this.outOfTime()) break;
 
-            // Delta pruning: captura que nem de graca alcanca alpha nao muda o
-            // no. Fora em xeque e em lance que da xeque, onde o ganho nao esta
-            // no material.
             if (
                 this.useDeltaPruning &&
                 !inCheck &&
@@ -473,7 +442,6 @@ export class SearchController {
         return alpha;
     }
 
-    /** Killers nao sobrevivem a busca; o historico sobrevive pela metade. */
     private static resetHeuristics() {
         this.killers = Array.from({ length: MAX_HEURISTIC_PLY }, () =>
             new Array(KILLER_SLOTS).fill(undefined),
@@ -482,7 +450,6 @@ export class SearchController {
         for (let i = 0; i < this.history.length; i++) this.history[i] >>= 1;
     }
 
-    /** Chamado no corte em beta, so para lance quieto. */
     private static rememberCutoff(
         color: "black" | "white",
         piece: Piece,
@@ -570,7 +537,6 @@ export class SearchController {
             const rank = killerRank(move.movement);
             if (rank >= 0) return KILLER_SCORES[rank];
 
-            // Lance quieto: sobra o que o historico aprendeu na partida.
             let score =
                 history[
                     (side * 64 + squareIndex(move.piece.position)) * 64 +
@@ -589,7 +555,6 @@ export class SearchController {
     }
 }
 
-/** Quanto tirar da profundidade deste lance. Zero significa buscar cheio. */
 function lateMoveReduction(
     index: number,
     depth: number,
@@ -602,14 +567,9 @@ function lateMoveReduction(
 
     const reduction = index >= LMR_DEEP_MOVE && depth >= 6 ? 2 : 1;
 
-    // A busca reduzida nunca pode cair abaixo de profundidade 1.
     return Math.min(reduction, depth - 2);
 }
 
-/**
- * Melhor caso material do lance, em centipeoes. Otimista de proposito: o delta
- * pruning so pode cortar o que nem assim chega em alpha.
- */
 function captureGain(board: Board, movement: Movement): number {
     const target = board.getSquare({
         row: movement.row,

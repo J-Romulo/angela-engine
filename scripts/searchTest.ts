@@ -1,10 +1,10 @@
-import { prepareBoardFromPosition } from "../src/core/fen";
-import { MovementController } from "../src/core/MovementController";
+import { prepareBoardFromPosition } from "../src/core/chess/notation/Fen";
+import { MovementController } from "../src/core/chess/Movement";
 import {
     MATE,
     MATE_THRESHOLD,
     SearchController,
-} from "../src/core/SearchController";
+} from "../src/core/engine/Search";
 
 const DEPTH = Number(process.argv[2] ?? 4);
 

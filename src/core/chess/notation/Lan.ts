@@ -1,5 +1,5 @@
-import { Board } from "./board/Board";
-import { Movement, Piece, Position } from "./pieces/Piece";
+import { Board } from "../board/Board";
+import { Movement, Piece, Position } from "../pieces/Piece";
 
 const FILES = "abcdefgh";
 
@@ -16,10 +16,6 @@ function parseSquare(square: string): Position | null {
     return { row, column };
 }
 
-/**
- * Origem, destino e a peca da promocao. Roque sai como o rei andando duas
- * casas - `e1g1`, nao `O-O` - e nao precisa de caso especial.
- */
 export function toLan(piece: Piece, movement: Movement): string {
     const promotion = movement.type.includes("promotion")
         ? (movement.promotion ?? "Q").toLowerCase()
@@ -28,10 +24,6 @@ export function toLan(piece: Piece, movement: Movement): string {
     return `${squareToLan(piece.position)}${squareToLan(movement)}${promotion}`;
 }
 
-/**
- * Devolve `null` para qualquer coisa que nao seja lance legal nesta posicao -
- * texto malformado, casa vazia, peca do adversario, destino impossivel.
- */
 export function parseLan(
     board: Board,
     lan: string,

@@ -1,11 +1,11 @@
-import { Bishop } from "./pieces/Bishop";
-import { King } from "./pieces/King";
-import { Knight } from "./pieces/Knight";
-import { Pawn } from "./pieces/Pawn";
-import { Piece } from "./pieces/Piece";
-import { Queen } from "./pieces/Queen";
-import { Rook } from "./pieces/Rook";
-import { Board } from "./board/Board";
+import { Bishop } from "../pieces/Bishop";
+import { King } from "../pieces/King";
+import { Knight } from "../pieces/Knight";
+import { Pawn } from "../pieces/Pawn";
+import { Piece } from "../pieces/Piece";
+import { Queen } from "../pieces/Queen";
+import { Rook } from "../pieces/Rook";
+import { Board } from "../board/Board";
 
 const FILES = "abcdefgh";
 

@@ -1,5 +1,5 @@
-import { EvaluationController } from "../src/core/EvaluationController";
-import { prepareBoardFromPosition } from "../src/core/fen";
+import { EvaluationController } from "../src/core/engine/Evaluation";
+import { prepareBoardFromPosition } from "../src/core/chess/notation/Fen";
 
 const evaluate = (fen: string, turn: "black" | "white" = "white") =>
     EvaluationController.evaluatePosition(prepareBoardFromPosition(fen), turn);

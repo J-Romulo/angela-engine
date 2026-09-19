@@ -1,6 +1,6 @@
-import { EvaluationController } from "../src/core/EvaluationController";
-import { prepareBoardFromPosition } from "../src/core/fen";
-import { SearchController } from "../src/core/SearchController";
+import { EvaluationController } from "../src/core/engine/Evaluation";
+import { prepareBoardFromPosition } from "../src/core/chess/notation/Fen";
+import { SearchController } from "../src/core/engine/Search";
 
 /**
  * Custo do delta pruning e do cache de avaliacao, isolados e juntos. As quatro

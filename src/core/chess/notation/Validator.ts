@@ -1,5 +1,5 @@
 /* eslint-disable no-useless-escape */
-import { Movement } from "./pieces/Piece";
+import { Movement } from "../pieces/Piece";
 
 export class NotationValidator {
     // Castling (O-O for kingside, O-O-O for queenside)
@@ -79,7 +79,6 @@ export class NotationValidator {
         const [, piece, column, row] = match;
 
         return {
-            // Sem letra de peca, e peao - que `getValidPieces` representa por "".
             pieceSymbol: piece ?? "",
             ambiguousColumn: column ?? null,
             ambiguousRow: row ?? null,
