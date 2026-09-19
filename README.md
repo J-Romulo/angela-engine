@@ -56,6 +56,24 @@ Supported commands: `uci`, `isready`, `ucinewgame`, `setoption`, `position` (`st
 
 **Opening book** — 5208 positions, built from master games (Elo 2200 and up, no bullet). Off by default; enable with `OwnBook`.
 
+## Where it stands
+
+On Lichess the bot settles around **1800 blitz**. It plays sound chess and rarely drops material outright, but it is a long way from strong, and the gap is not mysterious — it is the list below.
+
+**Speed is the main ceiling.** On kiwipete it reaches depth 6 in three seconds, at roughly 25k nodes per second. Engines written in C routinely search millions. The cause is the representation: an 8×8 array of square objects holding piece objects, with moves generated as fresh objects at every node. There are no bitboards, and every node allocates.
+
+Three costs are specific enough to fix:
+
+- move ordering scores inside the sort comparator, so each move is scored `O(n log n)` times instead of once, and every scoring touches the board
+- a `MovementController` is allocated per node in `searchBestMove`
+- move generation builds new arrays and objects per node instead of writing into a reused buffer
+
+**The evaluation is thin.** Material, piece-square tables, mobility and passed pawns, and that is all. There is no king safety, no penalty for doubled or isolated pawns, no bishop pair bonus. The middlegame-to-endgame switch is a single threshold rather than a smooth interpolation, so the score can jump when one piece leaves the board. And the queen is the only piece with no mobility term, which makes the engine undervalue it — it still reads queen for two rooks as a small gain.
+
+**The search is missing standard techniques.** No null-move pruning, no aspiration windows, no futility pruning, and no static exchange evaluation: captures are ordered by MVV-LVA alone, so losing captures are searched at full depth. Late move reduction re-searches with a full window instead of a null window, giving up much of what the reduction saves. It is single-threaded, and depth is capped at 12.
+
+None of this is half-finished work — it is simply where the engine is. The suites under [Tests](#tests) and the `match` harness exist so that any of it can be measured before and after, rather than argued about.
+
 ## Layout
 
 ```
