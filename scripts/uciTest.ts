@@ -1,8 +1,9 @@
-import { prepareBoardFromPosition } from "../src/core/fen";
-import { Board } from "../src/core/board/Board";
-import { parseLan, toLan } from "../src/core/lan";
-import { MovementController } from "../src/core/MovementController";
+import { prepareBoardFromPosition } from "../src/core/chess/notation/Fen";
+import { Board } from "../src/core/chess/board/Board";
+import { parseLan, toLan } from "../src/core/chess/notation/Lan";
+import { MovementController } from "../src/core/chess/Movement";
 import { UciController } from "../src/application/UciController";
+import { UciView } from "../src/presentation/UciView";
 
 const POSITIONS: [string, string][] = [
     ["inicial", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"],
@@ -107,7 +108,8 @@ const PROTOCOL_PREFIXES = [
 /** Roda uma sessao inteira e devolve tudo que a engine escreveu. */
 function session(lines: string[]): string[] {
     const written: string[] = [];
-    const controller = new UciController((line) => written.push(line));
+    const view = new UciView((line) => written.push(line));
+    const controller = new UciController(view);
 
     for (const line of lines) {
         if (!controller.handle(line)) break;
@@ -219,7 +221,7 @@ function protocolSuite(): number {
             !noBook.some((l) => l.includes("book move")),
     );
 
-    // Orcamento por relogio: 4s com 30 lances restantes da ~130ms.
+    // Orcamento por relogio: 4s divididos por 30, menos overhead, da ~80ms.
     const startedAt = Date.now();
     session(["position startpos", "go wtime 4000 btime 4000"]);
     const elapsed = Date.now() - startedAt;

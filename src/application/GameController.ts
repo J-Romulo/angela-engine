@@ -1,35 +1,16 @@
-import { Board } from "../core/board/Board";
-import promptSync from "prompt-sync";
-import { MovementController } from "../core/MovementController";
-import {
-    MATE,
-    MATE_THRESHOLD,
-    SearchController,
-} from "../core/SearchController";
-import { OpeningBook } from "../core/OpeningBook";
-import { Position } from "../core/pieces/Piece";
-
-const squareName = (position: Position) =>
-    `${"abcdefgh"[position.column]}${position.row + 1}`;
+import { Board } from "../core/chess/board/Board";
+import { MovementController } from "../core/chess/Movement";
+import { SearchController } from "../core/engine/Search";
+import { chooseMove } from "../core/engine/MoveChooser";
+import { GameView } from "./interfaces/GameView";
 
 const DEFAULT_SECONDS_PER_MOVE = 3;
 
-const formatEvaluation = (score: number) => {
-    if (Math.abs(score) <= MATE_THRESHOLD) return (score / 100).toFixed(2);
-
-    const moves = Math.ceil((MATE - Math.abs(score)) / 2);
-    return `${score > 0 ? "" : "-"}M${moves}`;
-};
-
-// 50 moves without pawn movement or capture
-// insufficient material
 export class GameController {
-    prompt: promptSync.Prompt;
-    board: Board;
-    moveController: MovementController;
+    private board: Board;
+    private moveController: MovementController;
 
-    constructor() {
-        this.prompt = promptSync({ sigint: true });
+    constructor(private readonly view: GameView) {
         this.board = new Board();
         this.moveController = new MovementController(this.board);
     }
@@ -40,18 +21,9 @@ export class GameController {
 
     showMainMenu() {
         while (true) {
-            console.clear();
-            this.displayLogo();
-            console.log("=".repeat(50));
-            console.log("                    MAIN MENU");
-            console.log("=".repeat(50));
-            console.log();
-            console.log("1. Play vs Computer");
-            console.log("2. Multiplayer (2 Players)");
-            console.log("3. Exit");
-            console.log();
+            this.view.showMainMenu();
 
-            const choice = this.prompt("Choose an option (1-3): ");
+            const choice = this.view.ask("Choose an option (1-3): ");
 
             switch (choice.trim()) {
                 case "1":
@@ -61,88 +33,61 @@ export class GameController {
                     this.playMultiplayer();
                     break;
                 case "3":
-                    console.log("Thanks for playing! Goodbye!");
+                    this.view.showGoodbye();
                     return;
                 default:
-                    console.log("Invalid option. Please choose 1, 2, or 3.");
-                    this.prompt("Press Enter to continue...");
+                    this.view.showInvalidOption();
             }
         }
     }
 
-    displayLogo() {
-        console.log();
-        console.log("                 ♜ ♞ ♝ ♛ ♚ ♝ ♞ ♜");
-        console.log("                 ♟ ♟ ♟ ♟ ♟ ♟ ♟ ♟");
-        console.log("                 . . . . . . . .");
-        console.log("                 . . . . . . . .");
-        console.log("                 . . . . . . . .");
-        console.log("                 . . . . . . . .");
-        console.log("                 ♙ ♙ ♙ ♙ ♙ ♙ ♙ ♙");
-        console.log("                 ♖ ♘ ♗ ♕ ♔ ♗ ♘ ♖");
-        console.log();
-        console.log("                 TYPESCRIPT CHESS");
-        console.log();
-    }
-
     playVsComputer() {
-        console.clear();
-        console.log("=".repeat(50));
-        console.log("                    PLAY VS COMPUTER");
-        console.log("=".repeat(50));
-        console.log();
-        console.log("The computer deepens its search until the time budget");
-        console.log("runs out, then plays the best move it found.");
-        console.log();
+        this.view.showVsComputerIntro();
 
-        const colorChoice = this.prompt("Play as (w)hite or (b)lack? [w]: ");
+        const colorChoice = this.view.ask("Play as (w)hite or (b)lack? [w]: ");
         const playerColor =
             colorChoice.trim().toLowerCase() === "b" ? "black" : "white";
         const computerColor = playerColor === "white" ? "black" : "white";
 
-        const secondsChoice = Number(
-            this.prompt(
-                `Seconds per move [${DEFAULT_SECONDS_PER_MOVE}]: `,
-            ).trim(),
-        );
-        const seconds =
-            Number.isFinite(secondsChoice) && secondsChoice > 0
-                ? secondsChoice
-                : DEFAULT_SECONDS_PER_MOVE;
+        const seconds = this.askSecondsPerMove();
 
-        console.log();
-        console.log(`You are ${playerColor}. Computer is ${computerColor}.`);
-        console.log(`Computer thinks for up to ${seconds}s per move.`);
-        console.log();
+        this.view.showSetup(playerColor, computerColor, seconds);
 
-        const confirm = this.prompt("Start game? (y/n): ");
-        if (confirm.toLowerCase() === "y") {
-            this.newGame();
-            this.gameLoop(computerColor, seconds * 1000);
-        }
+        if (!this.confirmStart()) return;
+
+        this.newGame();
+        this.gameLoop(computerColor, seconds * 1000);
     }
 
     playMultiplayer() {
-        console.clear();
-        console.log("=".repeat(50));
-        console.log("                    MULTIPLAYER MODE");
-        console.log("=".repeat(50));
-        console.log();
-        console.log("Two players will take turns on the same computer.");
-        console.log("White moves first, then Black alternates.");
-        console.log();
+        this.view.showMultiplayerIntro();
 
-        const confirm = this.prompt("Start game? (y/n): ");
-        if (confirm.toLowerCase() === "y") {
-            this.newGame();
-            this.gameLoop();
-        }
+        if (!this.confirmStart()) return;
+
+        this.newGame();
+        this.gameLoop();
+    }
+
+    private askSecondsPerMove(): number {
+        const answer = Number(
+            this.view
+                .ask(`Seconds per move [${DEFAULT_SECONDS_PER_MOVE}]: `)
+                .trim(),
+        );
+
+        return Number.isFinite(answer) && answer > 0
+            ? answer
+            : DEFAULT_SECONDS_PER_MOVE;
+    }
+
+    private confirmStart(): boolean {
+        return this.view.ask("Start game? (y/n): ").toLowerCase() === "y";
     }
 
     gameLoop(computerColor?: "white" | "black", timeLimitMs = Infinity) {
         let matchFinished = false;
         while (!matchFinished) {
-            this.printBoard();
+            this.view.showBoard(this.board);
 
             if (this.board.turn === computerColor) {
                 matchFinished = this.playComputerMove(
@@ -150,149 +95,81 @@ export class GameController {
                     timeLimitMs,
                 );
                 if (matchFinished) {
-                    this.printBoard();
+                    this.view.showBoard(this.board);
                 }
                 continue;
             }
 
-            const whiteMove = this.prompt(`${this.board.turn} to move: `);
+            const move = this.view.ask(`${this.board.turn} to move: `);
 
             try {
-                matchFinished = this.moveController.executeMovement(whiteMove);
+                const status = this.moveController.executeMovement(move);
+                this.view.showGameEnd(status, this.board.turn);
+
+                matchFinished = status !== "ongoing";
                 if (matchFinished) {
-                    this.printBoard();
+                    this.view.showBoard(this.board);
                 }
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } catch (error: any) {
-                console.error(error.message);
+                this.view.error(error.message);
             }
         }
 
-        this.prompt("\nPress Enter to return to the menu...");
+        this.view.pause("\nPress Enter to return to the menu...");
     }
 
     playComputerMove(
         computerColor: "white" | "black",
         timeLimitMs = Infinity,
     ): boolean {
-        const bookMove = OpeningBook.pick(this.board);
-        if (bookMove) {
-            try {
-                console.log(
-                    `\n${computerColor} plays ${bookMove} (opening book)`,
-                );
-                this.prompt("Press Enter to continue...");
-                return this.moveController.executeMovement(bookMove);
-            } catch {
-                // Lance de livro invalido nesta posicao: cai na busca. Nada foi
-                // aplicado ainda, entao o tabuleiro segue intacto.
-            }
-        }
-
-        console.log(`\n${computerColor} (computer) is thinking...`);
-
         const startedAt = Date.now();
-        const { piece, move, evaluation } = SearchController.search(
-            this.board,
-            computerColor,
-            timeLimitMs,
-        );
-        const elapsed = Date.now() - startedAt;
-        const { depth, nodes, quiescenceNodes } = SearchController.stats;
+        const chosen = chooseMove(this.board, this.moveController, {
+            budgetMs: timeLimitMs,
+            useBook: true,
+            onSearchStart: () => this.view.showThinking(computerColor),
+        });
+        const elapsedMs = Date.now() - startedAt;
 
-        if (!piece || !move) {
-            console.log(`${computerColor} has no legal moves. Game over.`);
+        if (!chosen) {
+            this.view.showNoLegalMoves(computerColor);
             return true;
         }
 
-        const from = squareName(piece.position);
-        const to = squareName(move);
-        const label = `${piece.name}${from}-${to}`;
-
-        const nextPosition = this.moveController.applyMovement(piece, move);
-
-        console.log(
-            `Computer plays ${label} (${move.type}, eval ${formatEvaluation(evaluation)},` +
-                ` depth ${depth}, ${nodes + quiescenceNodes} nodes, ${elapsed}ms)`,
+        const from = chosen.piece.position;
+        const nextPosition = this.moveController.applyMovement(
+            chosen.piece,
+            chosen.movement,
+            chosen.promotionSymbol,
         );
-        this.prompt("Press Enter to continue...");
 
-        return this.moveController.reportGameEnd(nextPosition);
+        if (chosen.fromBook) {
+            this.view.showBookMove(computerColor, chosen.san);
+        } else {
+            const { depth, nodes, quiescenceNodes } = SearchController.stats;
+
+            this.view.showComputerMove({
+                piece: chosen.piece.name,
+                from,
+                to: chosen.movement,
+                moveType: chosen.movement.type,
+                evaluation: chosen.evaluation,
+                depth,
+                nodes: nodes + quiescenceNodes,
+                elapsedMs,
+            });
+        }
+        this.view.pause();
+
+        const status = this.moveController.resolveGameEnd(nextPosition);
+        this.view.showGameEnd(status, this.board.turn);
+
+        return status !== "ongoing";
     }
 
     newGame() {
         SearchController.clearTable();
         this.board = new Board();
         this.moveController = new MovementController(this.board);
-    }
-
-    printBoard() {
-        // Códigos de cores ANSI
-        const colors = {
-            reset: "\x1b[0m",
-            // Cores de fundo
-            bgBlack: "\x1b[40m",
-            bgWhite: "\x1b[47m",
-            // Cores de texto
-            black: "\x1b[30m",
-            white: "\x1b[37m",
-            brightWhite: "\x1b[97m",
-            // Texto em negrito
-            bold: "\x1b[1m",
-        };
-
-        const pieceSymbols = {
-            King: { white: "♔", black: "♚" },
-            Queen: { white: "♕", black: "♛" },
-            Rook: { white: "♖", black: "♜" },
-            Bishop: { white: "♗", black: "♝" },
-            Knight: { white: "♘", black: "♞" },
-            Pawn: { white: "♙", black: "♟" },
-        };
-
-        console.log("   a   b   c   d   e   f   g   h");
-        console.log(" ┌───┬───┬───┬───┬───┬───┬───┬───┐");
-
-        // Imprime cada linha
-        for (let row = 7; row >= 0; row--) {
-            // Imprime o número da linha
-            process.stdout.write(`${row + 1}│`);
-
-            for (let col = 0; col < 8; col++) {
-                const square = this.board.squares[row][col];
-                const bgColor =
-                    square.color === "black" ? colors.bgBlack : colors.bgWhite;
-                const textColor =
-                    square.piece?.color === "white"
-                        ? colors.brightWhite
-                        : colors.black;
-
-                // Obtém o símbolo da peça
-                let symbol = " ";
-                if (square.piece) {
-                    // Extrai o tipo da peça do nome do construtor
-                    const pieceType = square.piece.constructor
-                        .name as keyof typeof pieceSymbols;
-                    symbol = pieceSymbols[pieceType][square.piece.color];
-                }
-
-                // Imprime a casa com cores apropriadas e mais espaço
-                process.stdout.write(
-                    `${bgColor}${textColor} ${symbol} ${colors.reset}│`,
-                );
-            }
-
-            // Imprime o número da linha novamente no lado direito
-            console.log(` ${row + 1}`);
-
-            if (row > 0) {
-                console.log(" ├───┼───┼───┼───┼───┼───┼───┼───┤");
-            }
-        }
-
-        console.log(" └───┴───┴───┴───┴───┴───┴───┴───┘");
-        console.log("   a   b   c   d   e   f   g   h");
-
-        console.log(`\nRound: ${this.board.round}, Turn: ${this.board.turn}`);
     }
 }
