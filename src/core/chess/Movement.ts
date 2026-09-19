@@ -1,6 +1,6 @@
-import { isSquareAttacked } from "./attacks";
+import { isSquareAttacked } from "./Attacks";
 import { Board } from "./board/Board";
-import { NotationValidator } from "./NotationValidator";
+import { NotationValidator } from "./notation/Validator";
 import { Bishop } from "./pieces/Bishop";
 import { King } from "./pieces/King";
 import { Knight } from "./pieces/Knight";
@@ -8,7 +8,7 @@ import { Pawn } from "./pieces/Pawn";
 import { Movement, Piece, Position } from "./pieces/Piece";
 import { Queen } from "./pieces/Queen";
 import { Rook } from "./pieces/Rook";
-import { CastlingRight } from "./zobrist";
+import { CastlingRight } from "./Zobrist";
 
 const notationToColumn: { [key: string]: number } = {
     a: 0,
@@ -78,7 +78,7 @@ export class MovementController {
         this.board = board;
     }
 
-    executeMovement(move: string): boolean {
+    executeMovement(move: string): GameStatus {
         const resolved = this.resolveSan(move);
 
         if (!resolved) {
@@ -91,13 +91,9 @@ export class MovementController {
             resolved.promotionSymbol,
         );
 
-        return this.reportGameEnd(repetitions);
+        return this.resolveGameEnd(repetitions);
     }
 
-    /**
-     * Resolve notacao algebrica sem aplicar nada e sem imprimir - o caminho
-     * UCI depende disso: escrita fora do protocolo derruba a GUI.
-     */
     resolveSan(move: string): {
         piece: Piece;
         movement: Movement;
@@ -312,34 +308,10 @@ export class MovementController {
         return "ongoing";
     }
 
-    reportGameEnd(repetitions: number): boolean {
+    resolveGameEnd(repetitions: number): GameStatus {
         this.board.check = this.isInCheck();
 
-        const status = this.gameStatus(repetitions);
-
-        switch (status) {
-            case "checkmate":
-                console.log(
-                    "Checkmate! Game over. " +
-                        (this.board.turn === "white" ? "Black" : "White") +
-                        " wins!",
-                );
-                return true;
-            case "stalemate":
-                console.log("Stalemate! Game over. It's a draw.");
-                return true;
-            case "insufficient_material":
-                console.log("Draw by insufficient material! Game over.");
-                return true;
-            case "fifty_moves":
-                console.log("Draw by the fifty-move rule! Game over.");
-                return true;
-            case "threefold":
-                console.log("Draw by threefold repetition! Game over.");
-                return true;
-            default:
-                return false;
-        }
+        return this.gameStatus(repetitions);
     }
 
     getValidPieces(pieceType: string) {
@@ -362,7 +334,6 @@ export class MovementController {
         let validMove: Movement | null = null;
         let validPiece: Piece | null = null;
 
-        // Loop inside loop, WARNING
         pieces
             .filter((piece) => {
                 if (ambiguition.ambiguousColumn && ambiguition.ambiguousRow) {

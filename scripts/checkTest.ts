@@ -1,6 +1,6 @@
-import { prepareBoardFromPosition } from "../src/core/fen";
-import { Board } from "../src/core/board/Board";
-import { GameStatus, MovementController } from "../src/core/MovementController";
+import { prepareBoardFromPosition } from "../src/core/chess/notation/Fen";
+import { Board } from "../src/core/chess/board/Board";
+import { GameStatus, MovementController } from "../src/core/chess/Movement";
 
 type CheckCase = {
     name: string;
@@ -95,16 +95,6 @@ const CASES: CheckCase[] = [
     },
 ];
 
-function silenced<T>(action: () => T): T {
-    const log = console.log;
-    console.log = () => {};
-    try {
-        return action();
-    } finally {
-        console.log = log;
-    }
-}
-
 /** Cavalos indo e voltando: a posicao inicial se repete a cada quatro lances. */
 const REPETITION_LINE = [
     "Nf3",
@@ -126,7 +116,7 @@ function repetitionSuite(): number {
     console.log("repeticao: cavalos indo e voltando");
 
     REPETITION_LINE.forEach((move, index) => {
-        silenced(() => controller.executeMovement(move));
+        controller.executeMovement(move);
 
         const ply = index + 1;
         const expectedCount = ply === 4 ? 2 : ply === 8 ? 3 : null;
@@ -166,7 +156,7 @@ function run() {
         const board = prepareBoardFromPosition(testCase.fen);
         const controller = new MovementController(board);
 
-        silenced(() => controller.executeMovement(testCase.move));
+        controller.executeMovement(testCase.move);
         const status = controller.gameStatus();
 
         const ok = status === testCase.expected;
