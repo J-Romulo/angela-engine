@@ -38,7 +38,7 @@ The engine picks the mode automatically: with a TTY attached it starts the termi
 | `Hash` | spin, 1–1024 | 128 | transposition table size in MB |
 | `OwnBook` | check | false | play from the built-in opening book |
 
-Supported commands: `uci`, `isready`, `ucinewgame`, `setoption`, `position` (`startpos` or `fen`, with `moves`), `go`, `quit`. `go` accepts `wtime`, `btime`, `winc`, `binc`, `movestogo`, `movetime` and `depth`. Pondering and `MultiPV` are not implemented.
+Supported commands: `uci`, `isready`, `ucinewgame`, `setoption`, `position` (`startpos` or `fen`, with `moves`), `go`, `quit`. `go` accepts `wtime`, `btime`, `winc`, `binc`, `movestogo`, `movetime` and `depth`.
 
 ## What is inside
 
