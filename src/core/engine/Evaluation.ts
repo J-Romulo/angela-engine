@@ -34,6 +34,14 @@ const RAYS: Record<string, readonly number[]> = {
 const UNSAFE_WHITE = new Uint8Array(64);
 const UNSAFE_BLACK = new Uint8Array(64);
 
+const PASSED_PAWN = [0, 10, 17, 25, 45, 80, 130, 0];
+const PASSED_PAWN_ENDGAME = [0, 15, 25, 40, 70, 120, 190, 0];
+
+const MAX_WHITE_PAWN_ROW = new Int8Array(8);
+const MAX_BLACK_PAWN_ROW = new Int8Array(8);
+const MIN_WHITE_PAWN_ROW = new Int8Array(8);
+const MIN_BLACK_PAWN_ROW = new Int8Array(8);
+
 const CACHE_BITS = 20;
 const CACHE_SIZE = 1 << CACHE_BITS;
 const CACHE_MASK = BigInt(CACHE_SIZE - 1);
@@ -97,6 +105,7 @@ function whiteScore(board: Board): number {
 
     markPawnAttacks(board.whitePawns, UNSAFE_WHITE, 1);
     markPawnAttacks(board.blackPawns, UNSAFE_BLACK, -1);
+    markPawnSpans(board);
 
     return score(board, "white", endgame) - score(board, "black", endgame);
 }
@@ -143,9 +152,66 @@ function sum(
             piece.value * PAWN_UNIT +
             (table?.[index] ?? 0) +
             mobility(board, piece, unsafe);
+
+        if (piece.name === "") {
+            total += passedPawn(row, column, white, endgame);
+        }
     }
 
     return total;
+}
+
+function markPawnSpans(board: Board): void {
+    MAX_WHITE_PAWN_ROW.fill(-1);
+    MIN_WHITE_PAWN_ROW.fill(8);
+    MAX_BLACK_PAWN_ROW.fill(-1);
+    MIN_BLACK_PAWN_ROW.fill(8);
+
+    for (const pawn of board.whitePawns) {
+        if (pawn.captured) continue;
+
+        const { row, column } = pawn.position;
+
+        if (row > MAX_WHITE_PAWN_ROW[column]) MAX_WHITE_PAWN_ROW[column] = row;
+        if (row < MIN_WHITE_PAWN_ROW[column]) MIN_WHITE_PAWN_ROW[column] = row;
+    }
+
+    for (const pawn of board.blackPawns) {
+        if (pawn.captured) continue;
+
+        const { row, column } = pawn.position;
+
+        if (row > MAX_BLACK_PAWN_ROW[column]) MAX_BLACK_PAWN_ROW[column] = row;
+        if (row < MIN_BLACK_PAWN_ROW[column]) MIN_BLACK_PAWN_ROW[column] = row;
+    }
+}
+
+function passedPawn(
+    row: number,
+    column: number,
+    white: boolean,
+    endgame: boolean,
+): number {
+    if (white) {
+        if (row !== MAX_WHITE_PAWN_ROW[column]) return 0;
+    } else if (row !== MIN_BLACK_PAWN_ROW[column]) {
+        return 0;
+    }
+
+    const first = column > 0 ? column - 1 : 0;
+    const last = column < 7 ? column + 1 : 7;
+
+    for (let file = first; file <= last; file++) {
+        if (white) {
+            if (MAX_BLACK_PAWN_ROW[file] > row) return 0;
+        } else if (MIN_WHITE_PAWN_ROW[file] < row) {
+            return 0;
+        }
+    }
+
+    const advanced = white ? row : 7 - row;
+
+    return endgame ? PASSED_PAWN_ENDGAME[advanced] : PASSED_PAWN[advanced];
 }
 
 function markPawnAttacks(
