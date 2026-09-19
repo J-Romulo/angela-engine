@@ -4,6 +4,8 @@
 
 A chess engine written from scratch in TypeScript. It speaks [UCI](https://backscattering.de/chess/uci/), so it plugs into any standard GUI (Arena, Cute Chess, BanksiaGUI), and it also ships a playable terminal interface.
 
+**Play against it on Lichess: [@Angela_eng](https://lichess.org/@/Angela_eng).**
+
 No chess libraries are used: move generation, legality, notation, search and evaluation are all implemented here.
 
 ## Requirements
